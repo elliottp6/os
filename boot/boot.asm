@@ -10,15 +10,33 @@ BITS 16
 
 ; entry point for 16-bit real mode
 main16:
-    call detect_cpuid
-    jc .no_long_mode
+    call detect_long_mode
+    jc .fail
     mov si, message_yes_long_mode
     call print
     jmp $
-.no_long_mode:
+.fail:
     mov si, message_no_long_mode
     call print
     jmp $
+
+;; TODO: add better comments here
+detect_long_mode:
+    call detect_cpuid ; see if CPUID is supported
+    jc .no_long_mode
+    mov eax, 0x80000000 ; 'A' register holds arg for CPUID. 
+    cpuid
+    cmp eax, 0x80000001 ; 
+    jb .no_long_mode
+    mov eax, 0x80000001 ; call extended function which tells us if long mode exists
+    cpuid
+    test edx, 1 << 29 ; LM bit is bit 29 in the D register
+    jz .no_long_mode
+    clc ; success, so clear carry and return
+    ret
+.no_long_mode
+    stc ; failure, so set carry and return
+    ret
 
 ; real-mode function
 ; carry flag is cleared if CPUID is supported, otherwise it is set
