@@ -10,9 +10,37 @@ BITS 16
 
 ; entry point for 16-bit real mode
 main16:
-    mov si, message_hello_world ; say hi
+    call detect_cpuid
+    jc .no_long_mode
+    mov si, message_yes_long_mode
     call print
-    jmp $ ; jump to self ($ = self) which is an infinite loop
+    jmp $
+.no_long_mode:
+    mov si, message_no_long_mode
+    call print
+    jmp $
+
+; real-mode function
+; carry flag is cleared if CPUID is supported, otherwise it is set
+; this function clobbers EAX, ECX and CF
+detect_cpuid:
+    pushfd ; copy FLAGS into EAX and ECX
+    pop eax
+    mov ecx, eax
+    xor eax, 1 << 21 ; flip bit 21 in EAX, put EAX into FLAGS, then move FLAGS back into EAX
+    push eax
+    popfd
+    pushfd
+    pop eax
+    push ecx ; restore FLAGS from ECX
+    popfd
+    xor eax, ecx ; if EAX == ECX, then we were not able to flip the CPUID bit, so jump to .no_cpuid
+    jz .no_cpuid
+    clc ; Success: return w/ a clear carry flag
+    ret
+.no_cpuid:
+    stc ; Failure: return w/ a set carry flag
+    ret
 
 ; real-mode print routine
 ; si register holds a pointer to the null-terminated message
@@ -35,7 +63,8 @@ print_char:
     ret
 
 ; static data
-message_hello_world: db 'Hello world', 0 ; null-terminated string
+message_no_long_mode: db "ERROR: CPU does not support long mode.", 0x0A, 0x0D, 0 ; message-CR-LF-NULL
+message_yes_long_mode: db "SUCCESS: CPU supports long mode.", 0x0A, 0x0D, 0
 
 ; padding & 2-byte boot-sector signature (to bring this binary up to 512 bytes)
 times 510-($ - $$) db 0 ; fill 510 - (size = (location - origin)) to bring us to 510 bytes
