@@ -10,6 +10,7 @@ BITS 16
 
 ; entry point for 16-bit real mode
 main16:
+    call enable_a20_line
     call detect_long_mode
     jc .fail
     mov si, message_yes_long_mode
@@ -20,13 +21,31 @@ main16:
     call print
     jmp $
 
-;; TODO: add better comments here
+; real-mode function
+; enable a20 line using the FAST A20 option
+; CAUTION: not all systems support FAST A20, and it may do something else unpredictable to the system instead
+; this is fine for qemu purposes since it does support fast a20
+; historical 8086 has a quirk called "memory wraparound" that some programs relied on, so the 20th bit of physical memory was latched to zero
+; we MUST enable this so we have access to all of memory
+enable_a20_line:
+    in al, 0x92 ; read from port 0x92
+    or al, 2
+    out 0x92, al ; write to port 0x92
+    ret
+
+; real-mode function
+enter_long_mode:
+    ; TODO
+    ret
+
+; real-mode function
+; carry flag is cleared if long-mode is supported, otherwise it is set
 detect_long_mode:
     call detect_cpuid ; see if CPUID is supported
     jc .no_long_mode
     mov eax, 0x80000000 ; 'A' register holds arg for CPUID. 
     cpuid
-    cmp eax, 0x80000001 ; 
+    cmp eax, 0x80000001 ; check for the existence of extended functions
     jb .no_long_mode
     mov eax, 0x80000001 ; call extended function which tells us if long mode exists
     cpuid
