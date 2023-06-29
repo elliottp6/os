@@ -1,17 +1,42 @@
-; tell assembler where this code will be loaded into memory (so we know absolute location of labels).
-; Bootloaders are loaded at 0x7C00 on x86_64 systems.
-; Memory below this point is reserved for interrupt vectors, BIOS, BASIC, etc.
-; 0x08000 is where first usable OS memory begins,
-; so the bootloader will be loaded at 0x7C00 (which gives it 1KB of memory to work with)
-ORG 0x7C00 
+; tell assembler where this code will be loaded into memory (so we know absolute location of labels)
+; Bootloaders are loaded at 0x7C00 on x86_64 systems
+; Everything below 0x7C00 is reserved by the BIOS.
+; This means that 0x7C00 to 0x7E00 is 512-bytes for the bootloader.
+; Above this we can do WHATEVER WE WANT.
+; For our purposes, let's use the 0x7E00 to 0x8000 (512 bytes) for our real-mode stack.
+; Put long-mode page tables (16KB) after real-mode stack at 0x9000 to 0x13000.
+ORG 0x7C00
 
 ; tell assembler to generate 16-bit machine code
 BITS 16
 
+; constants for long-mode page tables
+%define PAGE_PRESENT    (1 << 0)
+%define PAGE_WRITE      (1 << 1)
+
 ; entry point for 16-bit real mode
 main16:
+    ; setup real mode segment registers (note that we cannot do this in a routine, b/c the 'ret' instruction requires the stack)
+    cli ; disable interrupts (must do this before we mess w/ stack pointer, or else an interrupt could corrupt the stack)
+    xor ax, ax ; clear ax
+    mov ss, ax ; stack segment = 0
+    mov ds, ax ; data segment = 0
+    mov es, ax ; extra segment = 0
+    mov fs, ax ; (OS's generally use this for thread-specific memory) = 0
+    mov gs, ax ; (same here) = 0
+    mov ax, 0x8000 ; stack pointer (gives us 512 bytes of stack growing down to 0x7E00, which is the end of our bootsector)
+    mov sp, ax
+    sti ; enable interrupts
+
+    ; ok, now we have a flat memory model. enable the A20 physical line so we have access to all memory
     call enable_a20_line
+
+    ; see if long mode is supported. if not, the procedue will inform user and then loop forever
     call require_long_mode
+
+    ; now it's safe to try to enter long mode
+    mov edi, 0x9000 ; edi argument tells 'enter_long_mode' where to put page tables
+    call enter_long_mode
     jmp $
 
 ; real-mode function
@@ -27,8 +52,24 @@ enable_a20_line:
     ret
 
 ; real-mode function
-enter_long_mode:
-    ; TODO
+; es:edi must point to page-aligned 16KB buffer (for the PML4, PDPT, PD & PT)
+; ss:esp must point to memory that can be used as a small stack
+enter_long_mode:    
+    ; zero-out the 16KB buffer
+    push di ; backup DI (otherwise, clobbered by rep stosd)
+    mov ecx, 0x1000 ; set ECX to 4096
+    xor eax, eax ; clear EAX
+    cld ; clear direction-flag
+    rep stosd ; repeat-while-equal: store contents of eax into [edi], inc/dec edi each time by 4 bytes each time (4096 loops = 16KB)
+    pop di ; restore DI
+
+    ; build page map level 4
+    lea eax, [es:di + 0x1000] ; put address of page directory pointer table into eax
+    or eax, PAGE_PRESENT | PAGE_WRITE ; page present & writable
+    mov [es:di], eax ; store value of eax into first PML4E
+
+    ; build page directory pointer table
+    
     ret
 
 ; real-mode function, will cause the machine to halt
