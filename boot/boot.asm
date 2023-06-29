@@ -34,9 +34,11 @@ main16:
     ; see if long mode is supported. if not, the procedue will inform user and then loop forever
     call require_long_mode
 
-    ; now it's safe to try to enter long mode
-    mov edi, 0x9000 ; edi argument tells 'enter_long_mode' where to put page tables
-    call enter_long_mode
+    ; build the long mode page map from 0x9000 to 0x13000
+    mov edi, 0x9000 ; edi argument tells 'enter_long_mode' where to put page data
+    call build_long_mode_2MB_page_table
+
+    ; TODO: enable long mode
     jmp $
 
 ; real-mode function
@@ -52,24 +54,36 @@ enable_a20_line:
     ret
 
 ; real-mode function
-; es:edi must point to page-aligned 16KB buffer (for the PML4, PDPT, PD & PT)
+; es:edi must point to page-aligned 16KB buffer (for the PML4, PDPT, PD and a PT)
 ; ss:esp must point to memory that can be used as a small stack
-enter_long_mode:    
-    ; zero-out the 16KB buffer
+; this creates a page map with a total system memory of 2MB
+; (i.e. a full page table pointing to physical memory, but with only a single 0 entry for the PML4, PDPT and PD tables)
+build_long_mode_2MB_page_table:
+    ; zero-out the entire 16KB buffer
     push di ; backup DI (otherwise, clobbered by rep stosd)
     mov ecx, 0x1000 ; set ECX to 4096
     xor eax, eax ; clear EAX
     cld ; clear direction-flag
     rep stosd ; repeat-while-equal: store contents of eax into [edi], inc/dec edi each time by 4 bytes each time (4096 loops = 16KB)
     pop di ; restore DI
-
-    ; build page map level 4
-    lea eax, [es:di + 0x1000] ; put address of page directory pointer table into eax
-    or eax, PAGE_PRESENT | PAGE_WRITE ; page present & writable
-    mov [es:di], eax ; store value of eax into first PML4E
-
-    ; build page directory pointer table
     
+    ; write 1st entry of page map level 4 [PML4 9 bits (47-39) for 512 entries (PML4E) [512GB each]]
+    lea eax, [es:di + 0x1000] ; put address of PDPT into EAX
+    or eax, PAGE_PRESENT | PAGE_WRITE ; page present & writable
+    mov [es:di], eax ; store value of EAX into first PML4E
+
+    ; write 1st entry of page directory pointer table [PDPT 9 bits (bits 38-30) for 512 entries (PDPE) [1GB each]]
+    lea eax, [es:di + 0x2000] ; put address of PD into EAX
+    or eax, PAGE_PRESENT | PAGE_WRITE
+    mov [es:di + 0x1000], eax ; store value of EAX into first PDPT
+
+    ; write 1st entry of page directory [PD 9 bits (29-21) for 512 entries (PDE) [2MB each]]
+    lea eax, [es:di + 0x3000] ; put address of PT into EAX
+    or eax, PAGE_PRESENT | PAGE_WRITE
+    mov [es:di + 0x2000], eax ; store value of EAX into first PDE
+
+    ; write all entries of page table [PT 9 bits (20-12) for 512 entries (PE) [4K each]; leaving 12 bits (11-0) for 4096 byte pages]
+    ; TODO
     ret
 
 ; real-mode function, will cause the machine to halt
