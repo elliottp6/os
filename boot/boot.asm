@@ -11,14 +11,7 @@ BITS 16
 ; entry point for 16-bit real mode
 main16:
     call enable_a20_line
-    call detect_long_mode
-    jc .fail
-    mov si, message_yes_long_mode
-    call print
-    jmp $
-.fail:
-    mov si, message_no_long_mode
-    call print
+    call require_long_mode
     jmp $
 
 ; real-mode function
@@ -37,6 +30,18 @@ enable_a20_line:
 enter_long_mode:
     ; TODO
     ret
+
+; real-mode function, will cause the machine to halt
+require_long_mode:
+    call detect_long_mode
+    jc .failed_to_support_long_mode
+    mov si, message_yes_long_mode
+    call print
+    ret
+.failed_to_support_long_mode:
+    mov si, message_no_long_mode
+    call print
+    jmp $
 
 ; real-mode function
 ; carry flag is cleared if long-mode is supported, otherwise it is set
