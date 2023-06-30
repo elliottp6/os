@@ -83,7 +83,24 @@ build_long_mode_2MB_page_table:
     mov [es:di + 0x2000], eax ; store value of EAX into first PDE
 
     ; write all entries of page table [PT 9 bits (20-12) for 512 entries (PE) [4K each]; leaving 12 bits (11-0) for 4096 byte pages]
-    ; TODO
+    ; this maps 1:1 virtual-to-physical memory from 0 to 2MB
+    push di ; save DI
+    lea di, [di + 0x3000] ;  point DI to the page table
+    mov eax, PAGE_PRESENT | PAGE_WRITE ; EAX starts pointing to memory address 0 w/ flags
+    .page_table_loop:
+    mov [es:di], eax ; first page table entry points to memory address 0
+    add eax, 0x1000 ; next one points 4096 bytes later
+    add di, 8 ; each page table entry is an 8 byte pointer
+    cmp eax, 0x200000 ; 2MB
+    jb .page_table_loop ; jump if eax is below 2MB
+    pop di ; restore DI
+
+    ; disable IRQs (interrupt requests)
+    mov al, 0xFF
+    out 0xA1, al
+    out 0x21, al
+    
+    ; 
     ret
 
 ; real-mode function, will cause the machine to halt
@@ -93,7 +110,7 @@ require_long_mode:
     mov si, message_yes_long_mode
     call print
     ret
-.failed_to_support_long_mode:
+    .failed_to_support_long_mode:
     mov si, message_no_long_mode
     call print
     jmp $
@@ -113,7 +130,7 @@ detect_long_mode:
     jz .no_long_mode
     clc ; success, so clear carry and return
     ret
-.no_long_mode
+    .no_long_mode:
     stc ; failure, so set carry and return
     ret
 
@@ -135,7 +152,7 @@ detect_cpuid:
     jz .no_cpuid
     clc ; Success: return w/ a clear carry flag
     ret
-.no_cpuid:
+    .no_cpuid:
     stc ; Failure: return w/ a set carry flag
     ret
 
@@ -143,13 +160,13 @@ detect_cpuid:
 ; si register holds a pointer to the null-terminated message
 print:
     mov bx, 0 ; bx = counter
-.loop:
+    .print_loop:
     lodsb ; load si[b] into al (uses the DS:SI combo for segmented memory access)
     cmp al, 0 ; check for null terminator
-    je .done ; if zero/null, jump to .done
+    je .done_printing ; if zero/null, jump to .done
     call print_char
-    jmp .loop ; otherwise, print next char
-.done:
+    jmp .print_loop ; otherwise, print next char
+    .done_printing:
     ret
 
 ; real-mode print_char routine
@@ -159,7 +176,16 @@ print_char:
     int 0x10 ; calls BIOS interrupt (lookup Ralf Brown's interrupt list) to print character
     ret
 
+; 64-bit GDT
+; TODO
+
+; long mode main
+BITS 64
+main64:
+    jmp $
+
 ; static data
+BITS 16
 message_no_long_mode: db "ERROR: CPU does not support long mode.", 0x0A, 0x0D, 0 ; message-CR-LF-NULL
 message_yes_long_mode: db "SUCCESS: CPU supports long mode.", 0x0A, 0x0D, 0
 
