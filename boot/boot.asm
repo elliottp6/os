@@ -10,9 +10,11 @@ ORG 0x7C00
 ; tell assembler to generate 16-bit machine code
 BITS 16
 
-; constants for long-mode page tables
+; long-mode constants
 %define PAGE_PRESENT    (1 << 0)
 %define PAGE_WRITE      (1 << 1)
+%define CODE_SEG     0x0008
+%define DATA_SEG     0x0010
 
 ; entry point for 16-bit real mode
 main16:
@@ -39,8 +41,8 @@ main16:
     call build_long_mode_2MB_page_table
 
     ; enter long mode
-    call enter_long_mode
-    jmp $
+    mov edi, 0x9000
+    jmp enter_long_mode
 
 ; real-mode function
 ; enable a20 line using the FAST A20 option
@@ -54,6 +56,8 @@ enable_a20_line:
     out 0x92, al ; write to port 0x92
     ret
 
+; real-mode function
+; es:edi must point to a 16KB PML4E buffer
 enter_long_mode:
     ; disable IRQs (interrupt requests) TODO: why is this different from cli/sti?
     mov al, 0xFF
@@ -69,16 +73,24 @@ enter_long_mode:
 
     ; CR3 register must point to the PML4 (page map level 4)
     mov edx, edi
-    mov cr4, edx
+    mov cr3, edx
 
-    ; turn on read from the EFER MSR
+    ; enable long-mode by turning on the LME bit in the EFER MSR
     mov ecx, 0xC0000080
     rdmsr
     or eax, 0x00000100
     wrmsr
 
-    ; TODO
-    ret
+    ; enable paging & protection
+    mov ebx, cr0
+    or ebx, 0x80000001
+    mov cr0, ebx
+
+    ; load 64-bit global descriptor table
+    lgdt [GDT.Pointer]
+
+    ; start executing 64-bit code
+    jmp CODE_SEG:main64
 
 ; real-mode function
 ; es:edi must point to page-aligned 16KB buffer (for the PML4, PDPT, PD and a PT)
@@ -196,12 +208,30 @@ print_char:
     int 0x10 ; calls BIOS interrupt (lookup Ralf Brown's interrupt list) to print character
     ret
 
-; 64-bit GDT
-; TODO
-
 ; long mode main
-BITS 64
+[BITS 64]
 main64:
+    mov ax, DATA_SEG
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
+ 
+    ; Blank out the screen to a blue color.
+    mov edi, 0xB8000
+    mov rcx, 500                      ; Since we are clearing uint64_t over here, we put the count as Count/4.
+    mov rax, 0x1F201F201F201F20       ; Set the value to set the screen to: Blue background, white foreground, blank spaces.
+    rep stosq                         ; Clear the entire screen. 
+ 
+    ; Display "Hello World!"
+    mov edi, 0x00b8000              
+    mov rax, 0x1F6C1F6C1F651F48    
+    mov [edi],rax
+    mov rax, 0x1F6F1F571F201F6F
+    mov [edi + 8], rax
+    mov rax, 0x1F211F641F6C1F72
+    mov [edi + 16], rax
     jmp $
 
 ; static data
@@ -211,9 +241,22 @@ IDT:
     .Length       dw 0
     .Base         dd 0
 
+; Global Descriptor Table
+GDT:
+.Null:
+    dq 0x0000000000000000             ; Null Descriptor - should be present.
+.Code:
+    dq 0x00209A0000000000             ; 64-bit code descriptor (exec/read).
+    dq 0x0000920000000000             ; 64-bit data descriptor (read/write).
+ALIGN 4
+    dw 0                              ; Padding to make the "address of the GDT" field aligned on a 4-byte boundary
+.Pointer:
+    dw $ - GDT - 1                    ; 16-bit Size (Limit) of GDT.
+    dd GDT                            ; 32-bit Base Address of GDT. (CPU will zero extend to 64-bit) 
+
 ; string table
-message_no_long_mode: db "ERROR: CPU does not support long mode.", 0x0A, 0x0D, 0 ; message-CR-LF-NULL
-message_yes_long_mode: db "SUCCESS: CPU supports long mode.", 0x0A, 0x0D, 0
+message_no_long_mode: db "ERROR: no long mode.", 0x0A, 0x0D, 0 ; message-CR-LF-NULL
+message_yes_long_mode: db "SUCCESS: ok long mode.", 0x0A, 0x0D, 0
 
 ; padding & 2-byte boot-sector signature (to bring this binary up to 512 bytes)
 times 510-($ - $$) db 0 ; fill 510 - (size = (location - origin)) to bring us to 510 bytes
