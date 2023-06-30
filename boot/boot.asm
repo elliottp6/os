@@ -38,7 +38,8 @@ main16:
     mov edi, 0x9000 ; edi argument tells 'enter_long_mode' where to put page data
     call build_long_mode_2MB_page_table
 
-    ; TODO: enable long mode
+    ; enter long mode
+    call enter_long_mode
     jmp $
 
 ; real-mode function
@@ -51,6 +52,32 @@ enable_a20_line:
     in al, 0x92 ; read from port 0x92
     or al, 2
     out 0x92, al ; write to port 0x92
+    ret
+
+enter_long_mode:
+    ; disable IRQs (interrupt requests) TODO: why is this different from cli/sti?
+    mov al, 0xFF
+    out 0xA1, al
+    out 0x21, al
+    nop ; no-ops (why???)
+    nop
+    lidt [IDT] ; load a zero-length interrupt-descriptor-table, which means any NMI (non-maskable-interrupt) will cause a triple fault (a non-recoverable fault, which reboots the CPU, or in qemu it will dump w/ the instruction pointer @ instruction that caused the first exception.)
+
+    ; must enable PAE and PGE on CR4 before we can enter long mode
+    mov eax, 10100000b ; set PAE (physical address extension) and PGE (page global enable) bit [page table entries marked as global will be cached in the TLB across different address spaces]
+    mov cr4, eax
+
+    ; CR3 register must point to the PML4 (page map level 4)
+    mov edx, edi
+    mov cr4, edx
+
+    ; turn on read from the EFER MSR
+    mov ecx, 0xC0000080
+    rdmsr
+    or eax, 0x00000100
+    wrmsr
+
+    ; TODO
     ret
 
 ; real-mode function
@@ -94,32 +121,6 @@ build_long_mode_2MB_page_table:
     cmp eax, 0x200000 ; 2MB
     jb .page_table_loop ; jump if eax is below 2MB
     pop di ; restore DI
-
-    ;; TODO: the rest of this should be moved into a different function, since this is about
-    ;; entering long mode, not setting up page tables
-    ; disable IRQs (interrupt requests) TODO: why is this different from cli/sti?
-    mov al, 0xFF
-    out 0xA1, al
-    out 0x21, al
-    nop ; no-ops (why???)
-    nop
-    lidt [IDT] ; load a zero-length interrupt-descriptor-table, which means any NMI (non-maskable-interrupt) will cause a triple fault (a non-recoverable fault, which reboots the CPU, or in qemu it will dump w/ the instruction pointer @ instruction that caused the first exception.)
-
-    ; must enable PAE and PGE on CR4 before we can enter long mode
-    mov eax, 10100000b ; set PAE (physical address extension) and PGE (page global enable) bit [page table entries marked as global will be cached in the TLB across different address spaces]
-    mov cr4, eax
-
-    ; CR3 register must point to the PML4 (page map level 4)
-    mov edx, edi
-    mov cr4, edx
-
-    ; turn on read from the EFER MSR
-    mov ecx, 0xC0000080
-    rdmsr
-    or eax, 0x00000100
-    wrmsr
-
-    ; TODO
     ret
 
 ; real-mode function, will cause the machine to halt
@@ -204,7 +205,13 @@ main64:
     jmp $
 
 ; static data
-BITS 16
+; zero-length IDT structure
+ALIGN 4
+IDT:
+    .Length       dw 0
+    .Base         dd 0
+
+; string table
 message_no_long_mode: db "ERROR: CPU does not support long mode.", 0x0A, 0x0D, 0 ; message-CR-LF-NULL
 message_yes_long_mode: db "SUCCESS: CPU supports long mode.", 0x0A, 0x0D, 0
 
