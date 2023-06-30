@@ -139,8 +139,6 @@ build_long_mode_2MB_page_table:
 require_long_mode:
     call detect_long_mode
     jc .failed_to_support_long_mode
-    mov si, message_yes_long_mode
-    call print
     ret
     .failed_to_support_long_mode:
     mov si, message_no_long_mode
@@ -256,7 +254,6 @@ ALIGN 4
 
 ; string table
 message_no_long_mode: db "ERROR: no long mode.", 0x0A, 0x0D, 0 ; message-CR-LF-NULL
-message_yes_long_mode: db "SUCCESS: ok long mode.", 0x0A, 0x0D, 0
 
 ; padding & 2-byte boot-sector signature (to bring this binary up to 512 bytes)
 times 510-($ - $$) db 0 ; fill 510 - (size = (location - origin)) to bring us to 510 bytes
