@@ -1,16 +1,19 @@
 ; tell assembler where this code will be loaded into memory (so we know absolute location of labels)
 ; Bootloaders are loaded at 0x7C00 on x86_64 systems
 ; Everything below 0x7C00 is reserved by the BIOS.
-; This means that 0x7C00 to 0x7E00 is 512-bytes for the bootloader.
+; This means that 0x7C00 to 0x7E00 is 512-bytes for the stage 1 bootloader (this file).
 ; Above this we can do WHATEVER WE WANT.
-; For our purposes, let's use the 0x7E00 to 0x8000 (512 bytes) for our real-mode stack.
-; Put long-mode page tables (16KB) after real-mode stack at 0x9000 to 0x13000.
+; Put the stack at 0x9000 growing down. This gives us some space to load the stage 2 bootsector.
+; Put the long mode page tables at 0xA000, which will be 16KB worth of data.
+; We can load the OS itself at a much higher address, 0x10000 will not clobber anything else.
 ORG 0x7C00
 
 ; tell assembler to generate 16-bit machine code
 BITS 16
 
-; long-mode constants
+; constants
+%define STACK_ADDRESS 0x9000
+%define LONG_MODE_PAGE_TABLE_ADDRESS 0xA000
 %define PAGE_PRESENT    (1 << 0)
 %define PAGE_WRITE      (1 << 1)
 %define CODE_SEG     0x0008
@@ -26,7 +29,7 @@ main16:
     mov es, ax ; extra segment = 0
     mov fs, ax ; (OS's generally use this for thread-specific memory) = 0
     mov gs, ax ; (same here) = 0
-    mov ax, 0x8000 ; stack pointer (gives us 512 bytes of stack growing down to 0x7E00, which is the end of our bootsector)
+    mov ax, STACK_ADDRESS ; stack pointer
     mov sp, ax
     sti ; enable interrupts
 
@@ -36,12 +39,12 @@ main16:
     ; see if long mode is supported. if not, the procedue will inform user and then loop forever
     call require_long_mode
 
-    ; build the long mode page map from 0x9000 to 0x13000
-    mov edi, 0x9000 ; edi argument tells 'enter_long_mode' where to put page data
+    ; build the long mode page map from LONG_MODE_PAGE_TABLE_ADDRESS
+    mov edi, LONG_MODE_PAGE_TABLE_ADDRESS ; edi argument tells 'enter_long_mode' where to put page data
     call build_long_mode_2MB_page_table
 
     ; enter long mode
-    mov edi, 0x9000
+    mov edi, LONG_MODE_PAGE_TABLE_ADDRESS
     jmp enter_long_mode
 
 ; real-mode function
