@@ -95,12 +95,31 @@ build_long_mode_2MB_page_table:
     jb .page_table_loop ; jump if eax is below 2MB
     pop di ; restore DI
 
-    ; disable IRQs (interrupt requests)
+    ;; TODO: the rest of this should be moved into a different function, since this is about
+    ;; entering long mode, not setting up page tables
+    ; disable IRQs (interrupt requests) TODO: why is this different from cli/sti?
     mov al, 0xFF
     out 0xA1, al
     out 0x21, al
-    
-    ; 
+    nop ; no-ops (why???)
+    nop
+    lidt [IDT] ; load a zero-length interrupt-descriptor-table, which means any NMI (non-maskable-interrupt) will cause a triple fault (a non-recoverable fault, which reboots the CPU, or in qemu it will dump w/ the instruction pointer @ instruction that caused the first exception.)
+
+    ; must enable PAE and PGE on CR4 before we can enter long mode
+    mov eax, 10100000b ; set PAE (physical address extension) and PGE (page global enable) bit [page table entries marked as global will be cached in the TLB across different address spaces]
+    mov cr4, eax
+
+    ; CR3 register must point to the PML4 (page map level 4)
+    mov edx, edi
+    mov cr4, edx
+
+    ; turn on read from the EFER MSR
+    mov ecx, 0xC0000080
+    rdmsr
+    or eax, 0x00000100
+    wrmsr
+
+    ; TODO
     ret
 
 ; real-mode function, will cause the machine to halt
