@@ -1,4 +1,5 @@
 ; constants for kernel address, size, and GDT offsets for code & data
+ORG 0x8000
 %define KERNEL_ADDRESS 0x8000
 %define KERNEL_SIZE_IN_SECTORS 1
 %define CODE_SEG 0x08
@@ -6,8 +7,8 @@
 
 ; constants for page map
 %define LONG_MODE_PAGE_TABLE_ADDRESS 0xA000
-%define PAGE_PRESENT    (1 << 0)
-%define PAGE_WRITE      (1 << 1)
+%define PAGE_PRESENT (1 << 0)
+%define PAGE_WRITE (1 << 1)
 
 [BITS 32]
 main32:
@@ -25,20 +26,45 @@ main32:
     mov edi, LONG_MODE_PAGE_TABLE_ADDRESS ; edi argument tells 'enter_long_mode' where to put page data
     call build_long_mode_2MB_page_table
 
-    ; print 'L' character, to indicate that long mode is supported
-    mov ebx,0xb8000    ; The video address
-    mov al,'L'         ; The character to be print
-    mov ah,0xF0        ; The color: white(F) on black(0)
-    mov [ebx],ax
+    ; enter long mode
+    mov edi, LONG_MODE_PAGE_TABLE_ADDRESS
+    jmp enter_long_mode
 
-    ; OPTIONAL: setup a new, larger stack
-    ;mov ebp, STACK32_ADDRESS
-    ;mov esp, ebp
+; es:edi must point to a 16KB PML4E buffer
+enter_long_mode:
+    ; disable IRQs (interrupt requests) TODO: why is this different from cli/sti?
+    mov al, 0xFF
+    out 0xA1, al
+    out 0x21, al
+    nop ; no-ops (why???)
+    nop
+    lidt [IDT] ; load a zero-length interrupt-descriptor-table, which means any NMI (non-maskable-interrupt) will cause a triple fault (a non-recoverable fault, which reboots the CPU, or in qemu it will dump w/ the instruction pointer @ instruction that caused the first exception.)
 
-    ; ok, now it's time to enter long mode!
-    jmp $
+    ; must enable PAE and PGE on CR4 before we can enter long mode
+    mov eax, 10100000b ; set PAE (physical address extension) and PGE (page global enable) bit [page table entries marked as global will be cached in the TLB across different address spaces]
+    mov cr4, eax
 
-;
+    ; CR3 register must point to the PML4 (page map level 4)
+    mov edx, edi
+    mov cr3, edx
+
+    ; enable long-mode by turning on the LME bit in the EFER MSR
+    mov ecx, 0xC0000080
+    rdmsr
+    or eax, 0x00000100
+    wrmsr
+
+    ; enable paging & protection
+    mov ebx, cr0
+    or ebx, 0x80000001
+    mov cr0, ebx
+
+    ; load 64-bit global descriptor table
+    lgdt [GDT.Pointer]
+
+    ; select the 64-bit code segment while jumping to 64-bit main
+    jmp CODE_SEG:main64
+
 ; es:edi must point to page-aligned 16KB buffer (for the PML4, PDPT, PD and a PT)
 ; ss:esp must point to memory that can be used as a small stack
 ; this creates a page map with a total system memory of 2MB
@@ -131,6 +157,18 @@ detect_cpuid:
 ; long mode main
 [BITS 64]
 main64:
+    ; ??
+    mov ax, DATA_SEG
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
+
+    ; OPTIONAL: setup a new, larger stack
+    ;mov ebp, STACK32_ADDRESS
+    ;mov esp, ebp
+
     ; Blank out the screen to a blue color.
     mov edi, 0xB8000
     mov rcx, 500                      ; Since we are clearing uint64_t over here, we put the count as Count/4.
@@ -146,6 +184,25 @@ main64:
     mov rax, 0x1F211F641F6C1F72
     mov [edi + 16], rax
     jmp $
+
+; zero-length IDT structure
+ALIGN 4
+IDT:
+    .Length       dw 0
+    .Base         dd 0
+
+; Long-Mode Global Descriptor Table
+GDT:
+.Null:
+    dq 0x0000000000000000             ; Null Descriptor - should be present.
+.Code:
+    dq 0x00209A0000000000             ; 64-bit code descriptor (exec/read).
+    dq 0x0000920000000000             ; 64-bit data descriptor (read/write).
+ALIGN 4
+    dw 0                              ; Padding to make the "address of the GDT" field aligned on a 4-byte boundary
+.Pointer:
+    dw $ - GDT - 1                    ; 16-bit Size (Limit) of GDT.
+    dd GDT                            ; 32-bit Base Address of GDT. (CPU will zero extend to 64-bit) 
 
 ; padding to make this file 16-byte aligned (which allows it to mix w/ C object files in the same text section)
 times 512-($ - $$) db 0
