@@ -3,11 +3,15 @@
 
 [BITS 32]
 main32:
-    ; print '&' character, so we know we've entered the kernel OK
+    ; print 'K' character, so we know we've entered the kernel OK
     mov ebx,0xb8000    ; The video address
-    mov al,'&'         ; The character to be print
-    mov ah,0x0F        ; The color: white(F) on black(0)
+    mov al,'K'         ; The character to be print
+    mov ah,0xF0        ; The color: white(F) on black(0)
     mov [ebx],ax
+
+    ; OPTIONAL: setup a new, larger stack
+    ;mov ebp, STACK32_ADDRESS
+    ;mov esp, ebp
 
     ; ok, now it's time to enter long mode!
     jmp $
