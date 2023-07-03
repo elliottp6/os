@@ -93,7 +93,6 @@ enter_long_mode:
     ; start executing 64-bit code
     jmp CODE_SEG:main64
 
-; real-mode function
 ; es:edi must point to page-aligned 16KB buffer (for the PML4, PDPT, PD and a PT)
 ; ss:esp must point to memory that can be used as a small stack
 ; this creates a page map with a total system memory of 2MB
