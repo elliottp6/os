@@ -8,9 +8,6 @@
 ; We can load the OS itself at a much higher address, 0x10000 will not clobber anything else.
 ORG 0x7C00
 
-; tell assembler to generate 16-bit machine code
-BITS 16
-
 ; constants
 %define STACK_ADDRESS 0x9000
 %define LONG_MODE_PAGE_TABLE_ADDRESS 0xA000
@@ -20,6 +17,7 @@ BITS 16
 %define DATA_SEG     0x0010
 
 ; entry point for 16-bit real mode
+[BITS 16]
 main16:
     ; setup real mode segment registers (note that we cannot do this in a routine, b/c the 'ret' instruction requires the stack)
     cli ; disable interrupts (must do this before we mess w/ stack pointer, or else an interrupt could corrupt the stack)
@@ -36,7 +34,7 @@ main16:
     ; ok, now we have a flat memory model. enable the A20 physical line so we have access to all memory
     call enable_a20_line
 
-    ; see if long mode is supported. if not, the procedue will inform user and then loop forever
+    ; see if long mode is supported. if not, the procedure will inform user and then loop forever
     call require_long_mode
 
     ; build the long mode page map from LONG_MODE_PAGE_TABLE_ADDRESS
@@ -138,7 +136,7 @@ build_long_mode_2MB_page_table:
     pop di ; restore DI
     ret
 
-; real-mode function, will cause the machine to halt
+; will cause the machine to halt
 require_long_mode:
     call detect_long_mode
     jc .failed_to_support_long_mode
@@ -148,7 +146,6 @@ require_long_mode:
     call print
     jmp $
 
-; real-mode function
 ; carry flag is cleared if long-mode is supported, otherwise it is set
 detect_long_mode:
     call detect_cpuid ; see if CPUID is supported
@@ -189,7 +186,6 @@ detect_cpuid:
     stc ; Failure: return w/ a set carry flag
     ret
 
-; real-mode print routine
 ; si register holds a pointer to the null-terminated message
 print:
     mov bx, 0 ; bx = counter
@@ -202,7 +198,6 @@ print:
     .done_printing:
     ret
 
-; real-mode print_char routine
 ; al register holds the character to be printed
 print_char:
     mov ah, 0eh ; command VIDEO TELETYPE OUTPUT (display char on screen & advance cursor)
@@ -218,24 +213,33 @@ main64:
     mov fs, ax
     mov gs, ax
     mov ss, ax
- 
+
     ; Blank out the screen to a blue color.
     mov edi, 0xB8000
     mov rcx, 500                      ; Since we are clearing uint64_t over here, we put the count as Count/4.
     mov rax, 0x1F201F201F201F20       ; Set the value to set the screen to: Blue background, white foreground, blank spaces.
     rep stosq                         ; Clear the entire screen. 
+
+    ; load kernel
+    ;mov eax, 1 ; LBA 1 (logical block address 1, which is just past the bootloader)
+    ;mov ecx, 1 ; 1 sectors (entire kernel)
+    ;mov edi, 0x100000 ; loads kernel into 1MB position in memory
+    ;call ata_lba_read ; loads kernel into memory
+    ;push word CODE_SEG
+    ;push qword 0x100000
+    ;retf
+    ;jmp CODE_SEG:0x100000 ; jump to kernel '_start'
  
     ; Display "Hello World!"
-    mov edi, 0x00b8000              
-    mov rax, 0x1F6C1F6C1F651F48    
-    mov [edi],rax
-    mov rax, 0x1F6F1F571F201F6F
-    mov [edi + 8], rax
-    mov rax, 0x1F211F641F6C1F72
-    mov [edi + 16], rax
+    ;mov edi, 0x00b8000              
+    ;mov rax, 0x1F6C1F6C1F651F48    
+    ;mov [edi],rax
+    ;mov rax, 0x1F6F1F571F201F6F
+    ;mov [edi + 8], rax
+    ;mov rax, 0x1F211F641F6C1F72
+    ;mov [edi + 16], rax
     jmp $
 
-; static data
 ; zero-length IDT structure
 ALIGN 4
 IDT:
@@ -256,7 +260,7 @@ ALIGN 4
     dd GDT                            ; 32-bit Base Address of GDT. (CPU will zero extend to 64-bit) 
 
 ; string table
-message_no_long_mode: db "ERROR: no long mode.", 0x0A, 0x0D, 0 ; message-CR-LF-NULL
+message_no_long_mode: db "ERR: no long mode.", 0x0A, 0x0D, 0 ; message-CR-LF-NULL
 
 ; padding & 2-byte boot-sector signature (to bring this binary up to 512 bytes)
 times 510-($ - $$) db 0 ; fill 510 - (size = (location - origin)) to bring us to 510 bytes
