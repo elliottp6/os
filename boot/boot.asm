@@ -12,8 +12,9 @@ ORG 0x7C00
 %define KERNEL_SIZE_IN_SECTORS 1
 
 ; in protected mode, we'll use gdt_entry_1 for code, and gdt_entry_2 for data
-%define CODE_GDT_ENTRY_OFFSET 0x08
-%define DATA_GDT_ENTRY_OFFSET 0x10
+; these are the offsets into the GDT
+%define CODE_SEG 0x08
+%define DATA_SEG 0x10
 
 [BITS 16]
 main16:
@@ -48,7 +49,7 @@ main16:
     mov cr0, eax
 
     ; set the the CS register to the gtd table offset for the gdt code entry, and jump to main32
-    jmp CODE_GDT_ENTRY_OFFSET:main32
+    jmp CODE_SEG:main32
 
 ; size and offset information for GDT
 gdt_descriptor:
@@ -99,7 +100,7 @@ print_char_16:
 [BITS 32]
 main32:
     ; setup protected mode segment registers to point to our data segemnt entry in the GDT
-    mov ax, DATA_GDT_ENTRY_OFFSET
+    mov ax, DATA_SEG
     mov ds, ax
     mov es, ax
     mov fs, ax
