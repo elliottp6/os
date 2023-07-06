@@ -156,6 +156,7 @@ detect_cpuid:
 
 ; long mode main
 [BITS 64]
+extern main
 main64:
     ; ??
     mov ax, DATA_SEG
@@ -178,6 +179,19 @@ main64:
     ; Display "Hello World!"
     mov edi, 0x00b8000              
     mov rax, 0x1F6C1F6C1F651F48    
+    mov [edi],rax
+    mov rax, 0x1F6F1F571F201F6F
+    mov [edi + 8], rax
+    mov rax, 0x1F211F641F6C1F72
+    mov [edi + 16], rax
+
+    ; enter into the C code
+    ; TODO: we need to rebuild our cross-compiler to generate 64-bit code, or else this call fails!
+    ;call main
+
+    ; after C code runs, display 'system shutdown', then loop forever
+    mov edi, 0x00b8000              
+    mov rax, 0x1F5C1F6C1F651F48    
     mov [edi],rax
     mov rax, 0x1F6F1F571F201F6F
     mov [edi + 8], rax
