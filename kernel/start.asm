@@ -1,5 +1,5 @@
 ; constants for kernel address, size, and GDT offsets for code & data
-ORG 0x8000
+; ORG 0x8000 (don't need this here b/c we're linking this file using linker.ld)
 %define KERNEL_ADDRESS 0x8000
 %define KERNEL_SIZE_IN_SECTORS 1
 %define CODE_SEG 0x08
