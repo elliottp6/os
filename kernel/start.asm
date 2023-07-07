@@ -188,7 +188,7 @@ main64:
     ; enter into the C code
     ; TODO: we need to rebuild our cross-compiler to generate 64-bit code, or else this call fails!
     ; TODO: we also need to pad out the kernel to a specific # of sectors, and load all of them with the bootloader
-    ;call main
+    call main
 
     ; after C code runs, display 'system shutdown', then loop forever
     mov edi, 0x00b8000              
