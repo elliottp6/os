@@ -14,26 +14,27 @@ disk: bin/boot.bin bin/kernel.bin
 	cat bin/boot.bin bin/kernel.bin > bin/disk.bin
 	qemu-system-x86_64 -hda bin/disk.bin
 
-# assembler bootloader
-bin/boot.bin: boot/boot.asm
+# assembler bootloader, passing in the size of the kernel so it knows how many sectors to load
+bin/boot.bin: boot/boot.asm bin/kernel.bin
 	mkdir -p bin
+	echo "kernel size equ $(wc -c < bin/kernel.bin)" > bin/kernel_size.inc
 	nasm -f bin boot/boot.asm -o bin/boot.bin
 
 # link kernel objects
 bin/kernel.bin: $(KERNEL_ASM_OBJ) $(KERNEL_C_OBJ)
 	mkdir -p bin
-	i686-elf-ld -g -relocatable $(KERNEL_ASM_OBJ) $(KERNEL_C_OBJ) -o obj/kernel.o
-	i686-elf-gcc $(KERNEL_FLAGS) -T kernel/linker.ld -o bin/kernel.bin -ffreestanding -O0 -nostdlib obj/kernel.o
+	x86_64-elf-ld -g -relocatable $(KERNEL_ASM_OBJ) $(KERNEL_C_OBJ) -o obj/kernel.o
+	x86_64-elf-gcc $(KERNEL_FLAGS) -T kernel/linker.ld -o bin/kernel.bin -ffreestanding -O0 -nostdlib obj/kernel.o
 
 # assemble kernel ASM files
 $(KERNEL_ASM_OBJ): $(KERNEL_ASM)
 	mkdir -p $(dir $@)
-	nasm -f elf -g $< -o $@
+	nasm -f elf64 -g $< -o $@
 
 # compile kernel C files
 $(KERNEL_C_OBJ): $(KERNEL_C)
 	mkdir -p $(dir $@)
-	i686-elf-gcc $(KERNEL_INCLUDES) $(KERNEL_FLAGS) -std=gnu99 -c $< -o $@
+	x86_64-elf-gcc $(KERNEL_INCLUDES) $(KERNEL_FLAGS) -std=gnu99 -c $< -o $@
 
 # clean up all the files/folders
 clean:

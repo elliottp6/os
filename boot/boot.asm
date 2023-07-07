@@ -8,8 +8,10 @@ ORG 0x7C00
 %define STACK_ADDRESS 0x7F00
 
 ; load the kernel right above the bootloader's stack
+; kernel_size.inc will dynamically determine the size of the kernel in sectors
 %define KERNEL_ADDRESS 0x8000
 %define KERNEL_SIZE_IN_SECTORS 1
+; %include kernel_size.inc
 
 ; in protected mode, we'll use gdt_entry_1 for code, and gdt_entry_2 for data
 ; these are the offsets into the GDT
