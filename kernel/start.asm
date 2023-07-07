@@ -1,17 +1,12 @@
-; constants for kernel address, size, and GDT offsets for code & data
-; ORG 0x8000 (don't need this here b/c we're linking this file using linker.ld)
-%define KERNEL_ADDRESS 0x8000
-%define KERNEL_SIZE_IN_SECTORS 1
 %define CODE_SEG 0x08
 %define DATA_SEG 0x10
-
-; constants for page map
 %define LONG_MODE_PAGE_TABLE_ADDRESS 0xA000
 %define PAGE_PRESENT (1 << 0)
 %define PAGE_WRITE (1 << 1)
+global start32 ; tell linker where to find this entry point
 
 [BITS 32]
-main32:
+start32:
     ; print 'K' character, so we know we've entered the kernel OK
     mov ebx,0xb8000    ; The video address
     mov al,'K'         ; The character to be print
@@ -63,7 +58,7 @@ enter_long_mode:
     lgdt [GDT.Pointer]
 
     ; select the 64-bit code segment while jumping to 64-bit main
-    jmp CODE_SEG:main64
+    jmp CODE_SEG:start64
 
 ; es:edi must point to page-aligned 16KB buffer (for the PML4, PDPT, PD and a PT)
 ; ss:esp must point to memory that can be used as a small stack
@@ -157,7 +152,7 @@ detect_cpuid:
 ; long mode main
 [BITS 64]
 extern main
-main64:
+start64:
     ; ??
     mov ax, DATA_SEG
     mov ds, ax
@@ -186,11 +181,10 @@ main64:
     mov [edi + 16], rax
 
     ; enter into the C code
-    ; TODO: we need to rebuild our cross-compiler to generate 64-bit code, or else this call fails!
-    ; TODO: we also need to pad out the kernel to a specific # of sectors, and load all of them with the bootloader
     call main
 
-    ; after C code runs, display 'system shutdown', then loop forever
+    ; after C code runs, display 'kernel shutdown. you may now turn off your machine
+    ; TODO: this still says a variant of 'hello world'
     mov edi, 0x00b8000              
     mov rax, 0x1F5C1F6C1F651F48    
     mov [edi],rax
@@ -198,7 +192,12 @@ main64:
     mov [edi + 8], rax
     mov rax, 0x1F211F641F6C1F72
     mov [edi + 16], rax
-    jmp $
+
+    ; suspend the machine (ready for power off)
+suspend:
+    cli
+    hlt
+    jmp suspend
 
 ; zero-length IDT structure
 ALIGN 4

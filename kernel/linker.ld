@@ -1,4 +1,4 @@
-ENTRY(main32) /* begin execution @ main32, which is in start.asm */
+ENTRY(start32) /* begin execution @ start32, which is in start.asm */
 OUTPUT_FORMAT(binary) /* everything is binary, so no distinction between code & data (KISS) */
 SECTIONS
 {

@@ -19,7 +19,7 @@ ORG 0x7C00
 %define DATA_SEG 0x10
 
 [BITS 16]
-main16:
+boot16:
     ; disable interrupts, so interrupt handlers don't cause corruption while we're manipulating critical things like the stack pointer etc.
     cli
     
@@ -51,7 +51,7 @@ main16:
     mov cr0, eax
 
     ; set the the CS register to the gtd table offset for the gdt code entry, and jump to main32
-    jmp CODE_SEG:main32
+    jmp CODE_SEG:boot32
 
 ; size and offset information for GDT
 gdt_descriptor:
@@ -100,7 +100,7 @@ print_char_16:
     ret
 
 [BITS 32]
-main32:
+boot32:
     ; setup protected mode segment registers to point to our data segemnt entry in the GDT
     mov ax, DATA_SEG
     mov ds, ax
