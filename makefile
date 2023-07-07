@@ -16,8 +16,7 @@ disk: bin/boot.bin bin/kernel.bin
 
 # assembler bootloader, passing in the size of the kernel so it knows how many sectors to load
 bin/boot.bin: boot/boot.asm bin/kernel.bin
-	mkdir -p bin
-	echo "kernel size equ $(wc -c < bin/kernel.bin)" > bin/kernel_size.inc
+	echo "kernel_size equ $(shell wc -c < bin/kernel.bin)" > bin/kernel_size.inc
 	nasm -f bin boot/boot.asm -o bin/boot.bin
 
 # link kernel objects
@@ -25,6 +24,7 @@ bin/kernel.bin: $(KERNEL_ASM_OBJ) $(KERNEL_C_OBJ)
 	mkdir -p bin
 	x86_64-elf-ld -g -relocatable $(KERNEL_ASM_OBJ) $(KERNEL_C_OBJ) -o obj/kernel.o
 	x86_64-elf-gcc $(KERNEL_FLAGS) -T kernel/linker.ld -o bin/kernel.bin -ffreestanding -O0 -nostdlib obj/kernel.o
+	chmod -x bin/kernel.bin
 
 # assemble kernel ASM files
 $(KERNEL_ASM_OBJ): $(KERNEL_ASM)
