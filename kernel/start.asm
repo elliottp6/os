@@ -171,7 +171,7 @@ start64:
     rep stosq                         ; Clear the entire screen. 
  
     ; Display "Hello World!"
-    mov edi, 0x00b8000              
+    mov edi, 0xB8000              
     mov rax, 0x1F6C1F6C1F651F48    
     mov [edi],rax
     mov rax, 0x1F6F1F571F201F6F
