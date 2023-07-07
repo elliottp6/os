@@ -14,17 +14,20 @@ disk: bin/boot.bin bin/kernel.bin
 	cat bin/boot.bin bin/kernel.bin > bin/disk.bin
 	qemu-system-x86_64 -hda bin/disk.bin
 
-# assembler bootloader, passing in the size of the kernel so it knows how many sectors to load
+# assembler bootloader
 bin/boot.bin: boot/boot.asm bin/kernel.bin
-	echo "kernel_size equ $(shell wc -c < bin/kernel.bin)" > bin/kernel_size.inc
 	nasm -f bin boot/boot.asm -o bin/boot.bin
 
-# link kernel objects
+# link kernel objects, then pad the kernel to align to 512 bytes, and write the KERNEL_SECTORS constant to the bin/kernel_sectors.inc file so the bootloader can include it
 bin/kernel.bin: $(KERNEL_ASM_OBJ) $(KERNEL_C_OBJ)
 	mkdir -p bin
 	x86_64-elf-ld -g -relocatable $(KERNEL_ASM_OBJ) $(KERNEL_C_OBJ) -o obj/kernel.o
 	x86_64-elf-gcc $(KERNEL_FLAGS) -T kernel/linker.ld -o bin/kernel.bin -ffreestanding -O0 -nostdlib obj/kernel.o
-	chmod -x bin/kernel.bin
+	kernel_size=$$(wc -c < bin/kernel.bin); \
+	kernel_padding=$$(( (512 - ($$kernel_size % 512)) % 512 )); \
+	kernel_sectors=$$((( $$kernel_size + $$kernel_padding ) / 512 )); \
+	dd if=/dev/zero bs=1 count=$$kernel_padding >> bin/kernel.bin; \
+	echo "KERNEL_SECTORS equ $$kernel_sectors" > bin/kernel_sectors.inc
 
 # assemble kernel ASM files
 $(KERNEL_ASM_OBJ): $(KERNEL_ASM)

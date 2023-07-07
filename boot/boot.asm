@@ -8,10 +8,10 @@ ORG 0x7C00
 %define STACK_ADDRESS 0x7F00
 
 ; load the kernel right above the bootloader's stack
-; kernel_size.inc will dynamically determine the size of the kernel in sectors
 %define KERNEL_ADDRESS 0x8000
-%define KERNEL_SIZE_IN_SECTORS 1
-; %include kernel_size.inc
+
+; define KERNEL_SECTORS (defined externally by makefile, since the size of the kernel cannot be known until after compilation)
+%include "bin/kernel_sectors.inc"
 
 ; in protected mode, we'll use gdt_entry_1 for code, and gdt_entry_2 for data
 ; these are the offsets into the GDT
@@ -117,7 +117,8 @@ main32:
 
     ; ok, now load the kernel and run it
     mov eax, 1 ; LBA 1 (logical block address 1, which is just past the bootloader)
-    mov ecx, KERNEL_SIZE_IN_SECTORS ; load entire kernel
+    mov ecx, KERNEL_SECTORS
+ ; load entire kernel
     mov edi, KERNEL_ADDRESS ; where to load kernel
     call ata_lba_read ; loads kernel into memory
     jmp KERNEL_ADDRESS ; jump to kernel
