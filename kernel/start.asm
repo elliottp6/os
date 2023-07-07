@@ -3,6 +3,9 @@
 %define LONG_MODE_PAGE_TABLE_ADDRESS 0xA000
 %define PAGE_PRESENT (1 << 0)
 %define PAGE_WRITE (1 << 1)
+%define KERNEL_ADDRESS 0x8000
+%define KERNEL_STACK_SIZE 4096
+
 global start32 ; tell linker where to find this entry point
 extern main ; allows start.asm to call into main.c
 
@@ -180,28 +183,21 @@ start64:
     mov [edi + 16], rax
 
     ; setup a new, larger stack for the kernel to replace the bootloader's stack
-    ; TODO: it might actually be simpler to have the stack live BELOW the kernel, w/ a static size
-    ; b/c then both the stack and the kernel have fixed addresses
-    ; the start of the data region would be dynamic since it depends on the size of the kernel
-    ; pop dword eax ; get the KERNEL_SECTORS into EAX (this 32-bit value came from the bootloader)
-    ;mov ebp, KERNEL_STACK_OFFSET ; <-- should come AFTER the kernel, or alternatively, 
+    ; we'll stick it STACK_SIZE above the end of the kernel
+    ; TODO: later on we'll want to use page protection to ensure that we cannot have a stack overflow
+    ;pop rax ; get the KERNEL_SECTORS into EAX (this 32-bit value came from the bootloader)
+    ;add rsp, 4
+    ;mov eax, eax ; keep just the 32-bit part of the stack value
+    ;shl eax, 9 ; convert into bytes by shifting left by 9 (i.e. multiplying by 512)
+    ;add eax, KERNEL_ADDRESS + KERNEL_STACK_SIZE; convert into physical address
+    ;mov ebp, eax
     ;mov esp, ebp
 
     ; re-enable interrupts
-    sti
+    ;sti
 
     ; enter into the C code
     call main
-
-    ; after C code runs, display 'kernel shutdown. you may now turn off your machine
-    ; TODO: this still says a variant of 'hello world', we need to fix this
-    mov edi, 0x00b8000              
-    mov rax, 0x1F5C1F6C1F651F48    
-    mov [edi],rax
-    mov rax, 0x1F6F1F571F201F6F
-    mov [edi + 8], rax
-    mov rax, 0x1F211F641F6C1F72
-    mov [edi + 16], rax
 
     ; suspend the machine (ready for power off)
 suspend:
