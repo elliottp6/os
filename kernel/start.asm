@@ -4,9 +4,13 @@
 %define PAGE_PRESENT (1 << 0)
 %define PAGE_WRITE (1 << 1)
 global start32 ; tell linker where to find this entry point
+extern main ; allows start.asm to call into main.c
 
 [BITS 32]
 start32:
+    ; note that stack has the KERNEL_SECTORS 32-bit int from the bootloader on the stack
+    ; we'll retrieve this later in start64
+
     ; print 'K' character, so we know we've entered the kernel OK
     mov ebx,0xb8000    ; The video address
     mov al,'K'         ; The character to be print
@@ -151,7 +155,6 @@ detect_cpuid:
 
 ; long mode main
 [BITS 64]
-extern main
 start64:
     ; ??
     mov ax, DATA_SEG
@@ -160,10 +163,6 @@ start64:
     mov fs, ax
     mov gs, ax
     mov ss, ax
-
-    ; OPTIONAL: setup a new, larger stack
-    ;mov ebp, STACK32_ADDRESS
-    ;mov esp, ebp
 
     ; Blank out the screen to a blue color.
     mov edi, 0xB8000
@@ -180,11 +179,22 @@ start64:
     mov rax, 0x1F211F641F6C1F72
     mov [edi + 16], rax
 
+    ; setup a new, larger stack for the kernel to replace the bootloader's stack
+    ; TODO: it might actually be simpler to have the stack live BELOW the kernel, w/ a static size
+    ; b/c then both the stack and the kernel have fixed addresses
+    ; the start of the data region would be dynamic since it depends on the size of the kernel
+    ; pop dword eax ; get the KERNEL_SECTORS into EAX (this 32-bit value came from the bootloader)
+    ;mov ebp, KERNEL_STACK_OFFSET ; <-- should come AFTER the kernel, or alternatively, 
+    ;mov esp, ebp
+
+    ; re-enable interrupts
+    sti
+
     ; enter into the C code
     call main
 
     ; after C code runs, display 'kernel shutdown. you may now turn off your machine
-    ; TODO: this still says a variant of 'hello world'
+    ; TODO: this still says a variant of 'hello world', we need to fix this
     mov edi, 0x00b8000              
     mov rax, 0x1F5C1F6C1F651F48    
     mov [edi],rax

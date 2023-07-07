@@ -115,12 +115,14 @@ boot32:
     mov ah,0xF0        ; The color: white(F) on black(0)
     mov [ebx],ax
 
-    ; ok, now load the kernel and run it
+    ; ok, now load the kernel from disk
     mov eax, 1 ; LBA 1 (logical block address 1, which is just past the bootloader)
     mov ecx, KERNEL_SECTORS
- ; load entire kernel
-    mov edi, KERNEL_ADDRESS ; where to load kernel
+    mov edi, KERNEL_ADDRESS
     call ata_lba_read ; loads kernel into memory
+
+    ; jump to kernel, along with arguments from the bootloader
+    push KERNEL_SECTORS ; # of sectors that the kernel takes up (a 32-bit int since this is 32-bit code)
     jmp KERNEL_ADDRESS ; jump to kernel
 
 ata_lba_read:
