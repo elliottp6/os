@@ -7,8 +7,8 @@ ORG 0x7C00
 ; this is plenty (we only use a few bytes of stack right now)
 %define STACK_ADDRESS 0x7F00
 
-; load the kernel right above the bootloader's stack
-%define KERNEL_ADDRESS 0x8000
+; load the kernel @ 1MB for the same reasons Linux does (https://www.phoronix.com/news/Linux-Always-Reserve-1MB)
+%define KERNEL_ADDRESS 0x100000
 
 ; define KERNEL_SECTORS (defined externally by makefile, since the size of the kernel cannot be known until after compilation)
 %include "bin/kernel_sectors.inc"

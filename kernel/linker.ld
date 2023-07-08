@@ -2,7 +2,7 @@ ENTRY(start32) /* begin execution @ start32, which is in start.asm */
 OUTPUT_FORMAT(binary) /* everything is binary, so no distinction between code & data (KISS) */
 SECTIONS
 {
-    . = 0x8000; /* kernel origin */
+    . = 1M; /* kernel address */
 
     .text : ALIGN(4096) /*code section (note that C code is 16-byte aligned, so assembly code must also be) */
     {

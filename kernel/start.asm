@@ -3,7 +3,7 @@
 %define LONG_MODE_PAGE_TABLE_ADDRESS 0xA000
 %define PAGE_PRESENT (1 << 0)
 %define PAGE_WRITE (1 << 1)
-%define KERNEL_ADDRESS 0x8000
+%define KERNEL_ADDRESS 0x100000
 %define KERNEL_STACK_SIZE 4096
 
 global start32 ; tell linker where to find this entry point
