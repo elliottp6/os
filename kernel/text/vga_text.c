@@ -55,12 +55,12 @@ static void write_cell( vga_text_cell cell ) {
     if( terminal_x >= VGA_WIDTH ) { terminal_x = 0; terminal_y++; }
 }
 
-void terminal_print( char* str, char color ) {
+void vga_text_print( char* str, char color ) {
     size_t len = strlen( str );
     for( int i = 0; i < len; i++ ) write_cell( make_cell( str[i], color ) );
 }
 
-void terminal_clear( char color ) {
+void vga_text_clear( char color ) {
     vga_text_cell cell;
     cell.attribute = color;
     cell.character = ' ';

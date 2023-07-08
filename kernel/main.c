@@ -1,9 +1,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "main.h"
-#include "terminal.h"
+#include "text/vga_text.h"
 
 void main() {
-    terminal_clear( 0x17 );
-    terminal_print( "We are now in kernel main!\nIs this on the next line now?\n", 0x17 );
+    vga_text_clear( 0x17 );
+    vga_text_print( "We are now in kernel main!\nIs this on the next line now?\n", 0x17 );
 }
