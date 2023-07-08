@@ -26,6 +26,9 @@ void main() {
     vga_text_clear( 0x17 );
     vga_text_print( "Welcome to the kernel!\n", 0x17 );
 
+    // initialize the kernel heap
+    // TODO
+
     // TODO: do kernel main stuff
     // divide_by_zero();
     // panic( "attempted to divide by 0\n" );
