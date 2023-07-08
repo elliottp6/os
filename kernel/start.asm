@@ -1,10 +1,10 @@
 %define CODE_SEG 0x08
 %define DATA_SEG 0x10
-%define LONG_MODE_PAGE_TABLE_ADDRESS 0xA000
 %define PAGE_PRESENT (1 << 0)
 %define PAGE_WRITE (1 << 1)
 %define KERNEL_ADDRESS 0x100000
 %define KERNEL_STACK_SIZE 4096
+%define LONG_MODE_PAGE_TABLE_ADDRESS 0xA000
 
 global start32 ; tell linker where to find this entry point
 extern main ; allows start.asm to call into main.c
@@ -167,21 +167,12 @@ start64:
     mov gs, ax
     mov ss, ax
 
-    ; Blank out the screen to a blue color.
-    mov edi, 0xB8000
+    ; Blank out the screen to a blue color, to indicate that we're in long mode and about to enter the kernel's main C function
+    mov edi, 0xB8000                  ; address of vga text mode buffer
     mov rcx, 500                      ; Since we are clearing uint64_t over here, we put the count as Count/4.
     mov rax, 0x1F201F201F201F20       ; Set the value to set the screen to: Blue background, white foreground, blank spaces.
     rep stosq                         ; Clear the entire screen. 
  
-    ; Display "Hello World!"
-    mov edi, 0xB8000              
-    mov rax, 0x1F6C1F6C1F651F48    
-    mov [edi],rax
-    mov rax, 0x1F6F1F571F201F6F
-    mov [edi + 8], rax
-    mov rax, 0x1F211F641F6C1F72
-    mov [edi + 16], rax
-
     ; setup a new, larger stack for the kernel to replace the bootloader's stack
     ; we'll stick it STACK_SIZE above the end of the kernel
     ; TODO: later on we'll want to use page protection to ensure that we cannot have a stack overflow
@@ -194,7 +185,7 @@ start64:
     ;mov esp, ebp
 
     ; re-enable interrupts
-    ;sti
+    sti
 
     ; enter into the C code
     call main
