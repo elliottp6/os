@@ -1,51 +1,68 @@
 #include <stddef.h>
 #include <stdint.h>
-#include "terminal.h"
+#include "string.h"
 
 #define VGA_WIDTH 80
-#define VGA_HEIGHT 20
+#define VGA_HEIGHT 25
+#define VGA_SIZE (VGA_WIDTH * VGA_HEIGHT)
 
-static size_t strlen( const char* p ) {
-    size_t i = 0;
-    while( p[i] ) i++;
-    return i;
+typedef struct vga_text_cell {
+    char character, attribute; // ascii character, top 3 bits for background, bottom 4 bits for foreground
+} vga_text_cell;
+
+// globals
+static vga_text_cell *vga_text = (vga_text_cell*)0xB8000;
+static uint32_t terminal_x = 0, terminal_y = 0;
+
+static vga_text_cell make_cell( char character, char attribute ) {
+    vga_text_cell result;
+    result.character = character;
+    result.attribute = attribute;
+    return result;
 }
 
-static uint16_t *vga_text_mode_buffer = (uint16_t*)0xB8000,
-                terminal_row = 0,
-                terminal_col = 0;
-
-static uint16_t terminal_make_char( char c, char color ) {
-    return (color << 8) | c;
+static void set_cell( int x, int y, vga_text_cell cell ) {
+    vga_text[(y * VGA_WIDTH) + x] = cell;
 }
 
-static void terminal_putchar( int x, int y, char c, char color ) {
-    vga_text_mode_buffer[(y * VGA_WIDTH) + x] = terminal_make_char( c, color );
-}
+static void backspace() {
+    // if we're at the beginning of a line
+    if( 0 == terminal_x ) {
+        // and there's no prior line, then nothing to do
+        if( 0 == terminal_y ) return;
 
-static void terminal_backspace() {
-    if( 0 == terminal_col ) {
-        if( 0 == terminal_row ) return;
-        terminal_row--;
-        terminal_col = VGA_WIDTH;
+        // otherwise, move Y position up to the prior line
+        terminal_y--;
+
+        // and reset X position to the end of the prior line
+        terminal_x = VGA_WIDTH; // <-- TODO: not sure if this is right, or if we should look for first non-whitespace character?
     }
-    terminal_putchar( --terminal_col, terminal_row, ' ', 15 );
+
+    // blank out the current position
+    set_cell( --terminal_x, terminal_y, make_cell( ' ', 0xF ) );
 }
 
-static void terminal_writechar( char c, char color ) {
+static void write_cell( vga_text_cell cell ) {
     // handle newline 
-    if( '\n' == c ) { terminal_row++; terminal_col = 0; return; }
+    if( '\n' == cell.character ) { terminal_y++; terminal_x = 0; return; }
 
     // handle backspace
-    if( 8 == c ) { terminal_backspace(); return; }
+    if( 8 == cell.character ) { backspace(); return; }
 
     // handle regular character
-    terminal_putchar( terminal_col, terminal_row, c, color );
-    terminal_col++;
-    if( terminal_col >= VGA_WIDTH ) { terminal_col = 0; terminal_row++; }
+    set_cell( terminal_x, terminal_y, cell );
+    terminal_x++;
+    if( terminal_x >= VGA_WIDTH ) { terminal_x = 0; terminal_y++; }
 }
 
-void print( char* str, char color ) {
+void terminal_print( char* str, char color ) {
     size_t len = strlen( str );
-    for( int i = 0; i < len; i++ ) terminal_writechar( str[i], color );
+    for( int i = 0; i < len; i++ ) write_cell( make_cell( str[i], color ) );
+}
+
+void terminal_clear( char color ) {
+    vga_text_cell cell;
+    cell.attribute = color;
+    cell.character = ' ';
+    for( int i = 0; i < VGA_SIZE; i++ ) vga_text[i] = cell;
 }

@@ -4,5 +4,6 @@
 #include "terminal.h"
 
 void main() {
-    print( "We are now in kernel main!\nIs this on the next line now?", 15 );
+    terminal_clear( 0x17 );
+    terminal_print( "We are now in kernel main!\nIs this on the next line now?\n", 0x17 );
 }
