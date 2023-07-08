@@ -71,12 +71,3 @@ void vga_text_clear( char color ) {
     cell.character = ' ';
     for( int i = 0; i < VGA_SIZE; i++ ) vga_text[i] = cell;
 }
-
-void panic( const char* details ) {
-    // print messages
-    vga_text_print( "System panic!\n", 0x4F );
-    if( NULL != details ) vga_text_print( details, 0x4F );
-
-    // suspend CPU
-    while( true ) { asm volatile ( "cli\n" "hlt\n" ); }
-}
