@@ -80,7 +80,7 @@ void* heap_allocate( void* heap, size_t size ) {
 
 void heap_free( void* heap, void* p ) {
     // get block header for the object
-    block_header_t *block_header = (block_header_t*)(p - sizeof( block_header_t ));
+    // block_header_t *block_header = (block_header_t*)(p - sizeof( block_header_t ));
 
     // remove block by fixing up pointers of the prior & next blocks
     // TODO
