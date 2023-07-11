@@ -78,10 +78,18 @@ void* heap_allocate( void* heap, size_t size ) {
     return NULL;
 }
 
-// (1) address - N bytes to get block header
-// (2) set prev block to point to next block of same size (i.e. removing from list)
-// (3) if this block is earlier in list than root block's pointer, update root block's pointer
-// what about also maintaining a free list? may want to redesign...
 void heap_free( void* heap, void* p ) {
+    // get block header for the object
+    block_header_t *block_header = (block_header_t*)(p - sizeof( block_header_t ));
+
+    // remove block by fixing up pointers of the prior & next blocks
+    // TODO
+
+    // update the free_blocks list to point here IF this block is earlier in the list??
+    // BUT: what to do about the older free block? I guess this block could point to that block, forming our free list, but right now even nonfree blocks are part of that list.
+    // need to reconsider design a bit
+    // TODO
+
+    // check if neighboring blocks can be merged? Makes sense since we split in allocate, so we should merge in free
     // TODO
 }
