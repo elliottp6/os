@@ -1,11 +1,60 @@
 #include "heap.h"
 
+#define HEADER_SIZE 8
+#define MIN_ALLOC_LOG2 4
+#define MIN_ALLOC ((size_t)1 << MIN_ALLOC_LOG2)
+#define MAX_ALLOC_LOG2 31
+#define MAX_ALLOC ((size_t)1 << MAX_ALLOC_LOG2)
+#define BUCKET_COUNT (MAX_ALLOC_LOG2 - MIN_ALLOC_LOG2 + 1)
+
+typedef struct list_t {
+    struct list_t *prev, *next;
+} list_t;
+
+typedef struct heap {
+    size_t bucket_limit;
+    uint8_t *base_ptr, *max_ptr, node_is_split[(1 << (BUCKET_COUNT - 1)) / 8];
+    list_t buckets[BUCKET_COUNT];
+} heap_t;
+
+static void list_init( list_t *list ) {
+    list->prev = list;
+    list->next = list;
+}
+
+static void list_push( list_t *list, list_t *entry ) { // entry becomes the next head of the list. assumes the 'entry' isn't already in the list
+    list_t *prev = list->prev;
+    entry->prev = prev;
+    entry->next = list;
+    prev->next = entry;
+    list->prev = entry;
+}
+
+static void list_remove( list_t *entry ) {
+    list_t *prev = entry->prev, *next = entry->next;
+    prev->next = next;
+    next->prev = prev;
+}
+
+static list_t *list_pop( list_t *list ) {
+    list_t *back = list->prev;
+    if( back == list ) return NULL;
+    list_remove( back );
+    return back
+}
+
+static uint8_t *ptr_for_node( uint8_t *base_ptr, size_t index, size_t bucket ) {
+    return base_ptr + ((index - (1 << bucket) + 1) << (MAX_ALLOC_LOG2 - bucket));
+}
+
+
+
+
 #define MIN_BLOCK_SIZE 32 // smallest than 32-bytes isn't worth it due to overhead
 #define NUM_BLOCK_SIZES 10 // blocks up to 32KB (32,64...16KB,32KB)
 
 typedef struct block_header {
     struct block_header *prior, *next;
-    uint8_t side;
 } block_header_t;
 
 typedef struct heap_header { // note: we could make the free_blocks array dynamic since for smaller heaps we don't need NUM_BLOCK_SIZES, but for now it's easier to leave it as a static size
