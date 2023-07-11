@@ -5,6 +5,7 @@
 
 typedef struct block_header {
     struct block_header *prior, *next;
+    uint8_t side;
 } block_header_t;
 
 typedef struct heap_header { // note: we could make the free_blocks array dynamic since for smaller heaps we don't need NUM_BLOCK_SIZES, but for now it's easier to leave it as a static size
@@ -55,6 +56,7 @@ void heap_init( void *heap, size_t size ) {
 void* heap_allocate( void* heap, size_t size ) {
     // adjust object size to include header
     size+= sizeof( block_header_t );
+    size_t twice_size = size << 1;
 
     // heap header lives @ the start of the heap
     // we can just case it directly to a list of free blocks for faster access
@@ -65,16 +67,33 @@ void* heap_allocate( void* heap, size_t size ) {
         block_header_t *block_header = &free_blocks[i];
         
         // skip block if it's missing, or if it's too small
-        if( NULL == block_header || (size > block_size) ) continue;
+        if( (NULL == block_header) | (size > block_size) ) continue;
 
-        // ok, we have a block that's big enough --> should we split it into two smaller blocks?
-        // TODO
+        // split block if it's twice as big as required
+        if( block_size >= twice_size ) {
+            // backup block header
+            block_header_t block_header_backup = *block_header;
 
-        // if we don't need to split, allocate
+            // point header at the next block of this size
+            block_header = block_header->next;
+            
+            // ui
+            // TODO
+
+            // insert this into the list for smaller blocks
+            // TODO
+
+            // repeat the last loop iteration
+            i-=2;
+            block_size>>=2;
+            continue;
+        }
+
+        // allocate the block
         // TODO
     }
 
-    // not enough free contiguous space to allocate!
+    // not enough free contiguous space to allocate
     return NULL;
 }
 
