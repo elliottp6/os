@@ -62,7 +62,7 @@ void* heap_allocate( void* heap, size_t size ) {
 
     // look for the smallest free block that will contain this object w/ its header
     for( size_t i = 0, block_size = MIN_BLOCK_SIZE; i < NUM_BLOCK_SIZES; i++, block_size<<=1 ) {
-        block_header_t *block_header = free_blocks[i];
+        block_header_t *block_header = &free_blocks[i];
         
         // skip block if it's missing, or if it's too small
         if( NULL == block_header || (size > block_size) ) continue;
