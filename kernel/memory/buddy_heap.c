@@ -18,11 +18,11 @@
 // free list. Note that this will live in free blocks, which matches the minimum allocation size of 16 bytes
 typedef struct free_block { struct free_block *prior, *next; } free_block;
 
-typedef struct heap {
+typedef struct heap_header {
     // the size of the tree
     size_t bucket_limit;
 
-    // base_ptr to max_ptr define the entire heap region
+    // base_ptr to max_ptr define region where blocks live
     uint8_t *base_ptr, *max_ptr;
     
     // linearized binary tree of bits
@@ -30,7 +30,7 @@ typedef struct heap {
 
     // free list for each bucket (i.e. root free blocks). The 0th bucket corresponds to the entire address space (MAX_ALLOC).
     free_block buckets[BUCKET_COUNT];
-} heap_t;
+} heap_header_t;
 
 // initializes the first free block, which serves as our root block (aka bucket)
 static void free_block_init_root( free_block *root ) { root->prior = root->next = root; }
@@ -61,10 +61,30 @@ static free_block *free_block_pop_prior( free_block *block ) {
 }
 
 // 
-static uint8_t *ptr_for_node( uint8_t *base_ptr, size_t index, size_t bucket ) {
-    return base_ptr + ((index - (1 << bucket) + 1) << (MAX_ALLOC_LOG2 - bucket));
+static uint8_t *node_index_to_ptr( uint8_t *base_ptr, size_t bucket, size_t node_index ) {
+    return base_ptr + ((node_index - (1 << bucket) + 1) << (MAX_ALLOC_LOG2 - bucket));
 }
 
+static size_t node_index_from_ptr( uint8_t *base_ptr, size_t bucket, uint8_t *ptr ) {
+    return ((ptr - base_ptr) >> (MAX_ALLOC_LOG2 - bucket)) + (1 << bucket) - 1;
+}
+
+static int node_parent_is_split( uint8_t *node_is_split, size_t node_index ) {
+    node_index = (node_index - 1) / 2;
+    return (node_is_split[node_index / 8] >> (node_index % 8)) & 1;
+}
+
+static void node_flip_parent_is_split( uint8_t *node_is_split, size_t node_index ) {
+    node_index = (node_index - 1) / 2;
+    node_is_split[node_index / 8] ^= 1 << (node_index % 8);
+}
+
+// returns index of smallest bucket that can fit the requested size
+static size_t min_bucket_that_fits( size_t request_size ) {
+    size_t bucket = BUCKET_COUNT - 1, size = MIN_ALLOC;
+    while( size < request_size ) { bucket--; size*=2; }
+    return bucket;
+}
 
 
 
