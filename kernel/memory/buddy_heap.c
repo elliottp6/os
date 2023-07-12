@@ -1,48 +1,66 @@
-#include "heap.h"
+#include <stdint.h>
+#include "buddy_heap.h"
 
+// 8-byte header that stores allocation size right before each allocation
 #define HEADER_SIZE 8
+
+// minimum allocation size is 16 bytes (8 byte header + 8 byte object), which keeps us 8-byte aligned
 #define MIN_ALLOC_LOG2 4
 #define MIN_ALLOC ((size_t)1 << MIN_ALLOC_LOG2)
+
+// maximum allocation size is 2GB
 #define MAX_ALLOC_LOG2 31
 #define MAX_ALLOC ((size_t)1 << MAX_ALLOC_LOG2)
+
+// one bucket for each free list of pow2 size
 #define BUCKET_COUNT (MAX_ALLOC_LOG2 - MIN_ALLOC_LOG2 + 1)
 
-typedef struct list_t {
-    struct list_t *prev, *next;
-} list_t;
+// free list. Note that this will live in free blocks, which matches the minimum allocation size of 16 bytes
+typedef struct free_block { struct free_block *prior, *next; } free_block;
 
 typedef struct heap {
+    // the size of the tree
     size_t bucket_limit;
-    uint8_t *base_ptr, *max_ptr, node_is_split[(1 << (BUCKET_COUNT - 1)) / 8];
-    list_t buckets[BUCKET_COUNT];
+
+    // base_ptr to max_ptr define the entire heap region
+    uint8_t *base_ptr, *max_ptr;
+    
+    // linearized binary tree of bits
+    uint8_t node_is_split[(1 << (BUCKET_COUNT - 1)) / 8];
+
+    // free list for each bucket (i.e. root free blocks). The 0th bucket corresponds to the entire address space (MAX_ALLOC).
+    free_block buckets[BUCKET_COUNT];
 } heap_t;
 
-static void list_init( list_t *list ) {
-    list->prev = list;
-    list->next = list;
+// initializes the first free block, which serves as our root block (aka bucket)
+static void free_block_init_root( free_block *root ) { root->prior = root->next = root; }
+
+// inserts a new prior block behind 'block'
+// i.e. transforms: prior <--> block ==> prior <--> new_prior <--> block
+static void free_block_insert( free_block *block, free_block *new_prior ) {
+    free_block *prior = block->prior;
+    new_prior->prior = prior;
+    new_prior->next = block;
+    prior->next = new_prior;
+    block->prior = new_prior;
 }
 
-static void list_push( list_t *list, list_t *entry ) { // entry becomes the next head of the list. assumes the 'entry' isn't already in the list
-    list_t *prev = list->prev;
-    entry->prev = prev;
-    entry->next = list;
-    prev->next = entry;
-    list->prev = entry;
+// removes a free block from anywhere within the list of free blocks
+static void free_block_remove( free_block *block ) {
+    free_block *prior = block->prior, *next = block->next;
+    prior->next = next;
+    next->prior = prior;
 }
 
-static void list_remove( list_t *entry ) {
-    list_t *prev = entry->prev, *next = entry->next;
-    prev->next = next;
-    next->prev = prev;
+// removes and returns the block prior to this block. Returns NULL if no prior block.
+static free_block *free_block_pop_prior( free_block *block ) {
+    free_block *prior = block->prior;
+    if( prior == block ) return NULL;
+    free_block_remove( prior );
+    return prior;
 }
 
-static list_t *list_pop( list_t *list ) {
-    list_t *back = list->prev;
-    if( back == list ) return NULL;
-    list_remove( back );
-    return back
-}
-
+// 
 static uint8_t *ptr_for_node( uint8_t *base_ptr, size_t index, size_t bucket ) {
     return base_ptr + ((index - (1 << bucket) + 1) << (MAX_ALLOC_LOG2 - bucket));
 }
@@ -66,7 +84,7 @@ typedef struct heap_header { // note: we could make the free_blocks array dynami
 // [1] => free (MIN_BLOCK_SIZE << 1) byte block
 // [2] => free (MIN_BLOCK_SIZE << 2) byte block
 // ...
-void heap_init( void *heap, size_t size ) {
+void buddy_heap_init( void *heap, size_t size ) {
     // heap header lives @ the start of the heap
     heap_header_t *heap_header = (heap_header_t*)heap;
 
@@ -102,7 +120,7 @@ void heap_init( void *heap, size_t size ) {
 //     otherwise, ERROR_NOMEM, or just PANIC
 // (2) fix block forward pointers (each block points to next & prev block of same size)
 // (3) fix root block table
-void* heap_allocate( void* heap, size_t size ) {
+void* buddy_heap_allocate( void* heap, size_t size ) {
     // adjust object size to include header
     size+= sizeof( block_header_t );
     size_t twice_size = size << 1;
@@ -121,10 +139,10 @@ void* heap_allocate( void* heap, size_t size ) {
         // split block if it's twice as big as required
         if( block_size >= twice_size ) {
             // backup block header
-            block_header_t block_header_backup = *block_header;
+            //block_header_t block_header_backup = *block_header;
 
             // point header at the next block of this size
-            block_header = block_header->next;
+            //block_header = block_header->next;
             
             // ui
             // TODO
@@ -146,7 +164,7 @@ void* heap_allocate( void* heap, size_t size ) {
     return NULL;
 }
 
-void heap_free( void* heap, void* p ) {
+void buddy_heap_free( void* heap, void* p ) {
     // get block header for the object
     // block_header_t *block_header = (block_header_t*)(p - sizeof( block_header_t ));
 
