@@ -14,7 +14,7 @@ static size_t node_from_block( void *start, size_t bucket, circular_list_node_t 
 // returns index of smallest bucket that can fit the requested size
 static size_t min_bucket_that_fits( size_t request_size ) {
     size_t bucket = BUCKET_COUNT - 1, size = MIN_ALLOC;
-    while( size < request_size ) { bucket--; size*=2; }
+    while( size < request_size ) { bucket--; size<<=1; }
     return bucket;
 }
 
@@ -35,11 +35,10 @@ void buddy_heap_init( buddy_heap_t *heap, void *start, size_t size ) {
 }
 
 void* buddy_heap_allocate( buddy_heap_t* heap, size_t size ) {
-    // determine bucket
-    size+= HEADER_SIZE;
-    if( size > MAX_ALLOC ) return NULL;
-    size_t desired_bucket = min_bucket_that_fits( size );
-     
+    // determine bucket;
+    if( size + HEADER_SIZE > MAX_ALLOC ) return NULL;
+    size_t desired_bucket = min_bucket_that_fits( size + HEADER_SIZE );
+    
     // find smallest free block that is large enough
     circular_list_node_t *buckets = heap->buckets, *block;
     size_t bucket = desired_bucket;
@@ -52,7 +51,7 @@ void* buddy_heap_allocate( buddy_heap_t* heap, size_t size ) {
     size_t node = node_from_block( heap->start, desired_bucket, block );
     bit_tree_flip_parent_value( heap->bit_tree, node );
 
-    // split block if it's too large
+    // split block (if it's too large)
     while( bucket < desired_bucket ) {
         // mark child block as used
         bit_tree_flip_value( heap->bit_tree, node );
@@ -67,10 +66,25 @@ void* buddy_heap_allocate( buddy_heap_t* heap, size_t size ) {
         circular_list_insert_after( &buckets[bucket], right_block );
     }
     
-    // usable space is right after the block's header
+    // usable space is right after the block's header (which contains its bucket)
+    *(size_t*)block = bucket;
     return block + HEADER_SIZE;
 }
 
 void buddy_heap_free( buddy_heap_t* heap, void* ptr ) {
+    // ignore null (or panic?)
+    if( NULL == ptr ) return;
+
+    // get block, bucket and node
+    circular_list_node_t *block = (circular_list_node_t*)(ptr - HEADER_SIZE);
+    size_t bucket = *(size_t*)block;
+    size_t node = node_from_block( heap->start, bucket, block );
+
+    // merge blocks
+    while( 0 != node ) {
+        // TODO
+    }
+
+    // add bucket to the free list
     // TODO
 }
