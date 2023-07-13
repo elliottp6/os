@@ -1,82 +1,48 @@
 #include <stdint.h>
+#include <stdbool.h>
+#include "circular_list.h"
 #include "buddy_heap.h"
 
-// 8-byte header that stores allocation size right before each allocation
-#define HEADER_SIZE 8
-
-// minimum allocation size is 16 bytes (8 byte header + 8 byte object), which keeps us 8-byte aligned
-#define MIN_ALLOC_LOG2 4
+#define HEADER_SIZE 8 // 8-byte header for each allocated block
+#define MIN_ALLOC_LOG2 4 // minimum allocation size is 16 bytes (8 byte header + 8 byte object), which keeps us 8-byte aligned, and also matches the sizeof( circular_list_node_t ).
 #define MIN_ALLOC ((size_t)1 << MIN_ALLOC_LOG2)
-
-// maximum allocation size is 2GB
-#define MAX_ALLOC_LOG2 31
+#define MAX_ALLOC_LOG2 31 // maximum allocation size is 2GB
 #define MAX_ALLOC ((size_t)1 << MAX_ALLOC_LOG2)
+#define BUCKET_COUNT (MAX_ALLOC_LOG2 - MIN_ALLOC_LOG2 + 1) // one bucket for each free list of pow2 size
+#define NODE_COUNT (1 << (BUCKET_COUNT - 1)) // # of nodes in linearized binary tree of bits
 
-// one bucket for each free list of pow2 size
-#define BUCKET_COUNT (MAX_ALLOC_LOG2 - MIN_ALLOC_LOG2 + 1)
-
-// free list. Note that this will live in free blocks, which matches the minimum allocation size of 16 bytes
-typedef struct free_block { struct free_block *prior, *next; } free_block;
-
-typedef struct heap_header {
-    // the size of the tree
-    size_t bucket_limit;
-
-    // base_ptr to max_ptr define region where blocks live
-    uint8_t *base_ptr, *max_ptr;
-    
-    // linearized binary tree of bits
-    uint8_t node_is_split[(1 << (BUCKET_COUNT - 1)) / 8];
-
-    // free list for each bucket (i.e. root free blocks). The 0th bucket corresponds to the entire address space (MAX_ALLOC).
-    free_block buckets[BUCKET_COUNT];
-} heap_header_t;
-
-// initializes the first free block, which serves as our root block (aka bucket)
-static void free_block_init_root( free_block *root ) { root->prior = root->next = root; }
-
-// inserts a new prior block behind 'block'
-// i.e. transforms: prior <--> block ==> prior <--> new_prior <--> block
-static void free_block_insert( free_block *block, free_block *new_prior ) {
-    free_block *prior = block->prior;
-    new_prior->prior = prior;
-    new_prior->next = block;
-    prior->next = new_prior;
-    block->prior = new_prior;
-}
-
-// removes a free block from anywhere within the list of free blocks
-static void free_block_remove( free_block *block ) {
-    free_block *prior = block->prior, *next = block->next;
-    prior->next = next;
-    next->prior = prior;
-}
-
-// removes and returns the block prior to this block. Returns NULL if no prior block.
-static free_block *free_block_pop_prior( free_block *block ) {
-    free_block *prior = block->prior;
-    if( prior == block ) return NULL;
-    free_block_remove( prior );
-    return prior;
-}
+typedef struct heap {
+    uint8_t *start, *end, node_bits[NODE_COUNT / 8];
+    circular_list_node_t buckets[BUCKET_COUNT]; // root list node for each bucket. 0th bucket is largest (MAX_ALLOC).
+} heap_t;
 
 // 
-static uint8_t *node_index_to_ptr( uint8_t *base_ptr, size_t bucket, size_t node_index ) {
-    return base_ptr + ((node_index - (1 << bucket) + 1) << (MAX_ALLOC_LOG2 - bucket));
+static uint8_t *node_to_ptr( uint8_t *start, size_t bucket, size_t node ) {
+    return start + ((node - (1 << bucket) + 1) << (MAX_ALLOC_LOG2 - bucket));
 }
 
-static size_t node_index_from_ptr( uint8_t *base_ptr, size_t bucket, uint8_t *ptr ) {
-    return ((ptr - base_ptr) >> (MAX_ALLOC_LOG2 - bucket)) + (1 << bucket) - 1;
+static size_t node_from_ptr( uint8_t *start, size_t bucket, uint8_t *ptr ) {
+    return ((ptr - start) >> (MAX_ALLOC_LOG2 - bucket)) + (1 << bucket) - 1;
 }
 
-static int node_parent_is_split( uint8_t *node_is_split, size_t node_index ) {
-    node_index = (node_index - 1) / 2;
-    return (node_is_split[node_index / 8] >> (node_index % 8)) & 1;
+static size_t node_get_parent( size_t node ) {
+    return (node - 1) / 2;
 }
 
-static void node_flip_parent_is_split( uint8_t *node_is_split, size_t node_index ) {
-    node_index = (node_index - 1) / 2;
-    node_is_split[node_index / 8] ^= 1 << (node_index % 8);
+static int node_get_bit( uint8_t *node_bits, size_t node ) {
+    return (node_bits[node / 8] >> (node % 8)) & 1;
+}
+
+static void node_flip_bit( uint8_t *node_bits, size_t node ) {
+    node_bits[node / 8] ^= 1 << (node % 8);
+}
+
+static int node_get_parent_bit( uint8_t *node_bits, size_t node ) {
+    return node_get_bit( node_bits, node_get_parent( node ) );
+}
+
+static void node_flip_parent_bit( uint8_t *node_bits, size_t node ) {
+    node_flip_bit( node_bits, node_get_parent( node ) );
 }
 
 // returns index of smallest bucket that can fit the requested size
@@ -86,8 +52,25 @@ static size_t min_bucket_that_fits( size_t request_size ) {
     return bucket;
 }
 
+void buddy_heap_init( void *heap, size_t size ) {
+    
+}
 
+void* buddy_heap_allocate( void* heap, size_t size ) {
+    //heap_t *h = (heap_t*)heap;
 
+    // if requesting too much memory, go ahead and fail
+    //if( size + HEADER_SIZE > MAX_ALLOC ) return NULL;
+
+    // 
+    return NULL;
+}
+
+void buddy_heap_free( void* heap, void* p ) {
+
+}
+
+/*
 #define MIN_BLOCK_SIZE 32 // smallest than 32-bytes isn't worth it due to overhead
 #define NUM_BLOCK_SIZES 10 // blocks up to 32KB (32,64...16KB,32KB)
 
@@ -199,3 +182,4 @@ void buddy_heap_free( void* heap, void* p ) {
     // check if neighboring blocks can be merged? Makes sense since we split in allocate, so we should merge in free
     // TODO
 }
+*/
