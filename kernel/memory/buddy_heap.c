@@ -38,37 +38,37 @@ void* buddy_heap_allocate( buddy_heap_t* heap, size_t size ) {
     // determine bucket
     size+= HEADER_SIZE;
     if( size > MAX_ALLOC ) return NULL;
-    size_t bucket = min_bucket_that_fits( size );
+    size_t desired_bucket = min_bucket_that_fits( size );
      
     // find smallest free block that is large enough
-    circular_list_node_t *buckets = heap->buckets, *free_block;
-    size_t free_bucket = bucket;
-    while( !(free_block = circular_list_pop_next( &buckets[free_bucket] )) ) {
-        if( 0 == free_bucket ) return NULL; // if root (largest) bucket fails, we're done
-        free_bucket--; // try next-larger bucket
+    circular_list_node_t *buckets = heap->buckets, *block;
+    size_t bucket = desired_bucket;
+    while( !(block = circular_list_pop_next( &buckets[bucket] )) ) {
+        if( 0 == bucket ) return NULL; // if root (largest) bucket fails, we're done
+        bucket--; // try next-larger bucket
     }
 
     // mark block as used
-    size_t node_index = node_from_block( heap->start, bucket, free_block );
-    bit_tree_flip_parent_value( heap->bit_tree, node_index );
+    size_t node = node_from_block( heap->start, desired_bucket, block );
+    bit_tree_flip_parent_value( heap->bit_tree, node );
 
     // split block if it's too large
-    while( free_bucket < bucket ) {
+    while( bucket < desired_bucket ) {
         // mark child block as used
-        bit_tree_flip_value( heap->bit_tree, node_index );
+        bit_tree_flip_value( heap->bit_tree, node );
 
         // move to left child
-        node_index = bit_tree_get_left_child_index( node_index );
+        node = bit_tree_get_left_child_index( node );
         bucket++;
 
         // insert right child into free list
-        size_t right_child = node_index + 1;
-        circular_list_node_t *right_block = node_to_block( heap->start, bucket, right_child );
+        size_t right_child_node = node + 1;
+        circular_list_node_t *right_block = node_to_block( heap->start, bucket, right_child_node );
         circular_list_insert_after( &buckets[bucket], right_block );
     }
     
-    // must skip past the node's header
-    return free_block + HEADER_SIZE;
+    // usable space is right after the block's header
+    return block + HEADER_SIZE;
 }
 
 void buddy_heap_free( buddy_heap_t* heap, void* ptr ) {
