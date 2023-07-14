@@ -30,7 +30,7 @@ void buddy_heap_init( buddy_heap_t *heap, void *start, size_t size ) {
     circular_list_node_t *buckets = heap->buckets;
     for( int i = 0; i < BUCKET_COUNT; i++ ) circular_list_init( &buckets[i] );
 
-    // push free blocks
+    // push free blocks (largest first)
     // TODO
 }
 
@@ -47,7 +47,7 @@ void* buddy_heap_allocate( buddy_heap_t* heap, size_t size ) {
         bucket--; // try next-larger bucket
     }
 
-    // mark block as used
+    // mark block as used (which toggles the split-state of its parent)
     size_t node = node_from_block( heap->start, desired_bucket, block );
     bit_tree_flip_parent_value( heap->bit_tree, node );
 
@@ -72,19 +72,26 @@ void* buddy_heap_allocate( buddy_heap_t* heap, size_t size ) {
 }
 
 void buddy_heap_free( buddy_heap_t* heap, void* ptr ) {
-    // ignore null (or panic?)
+    // ignore null
     if( NULL == ptr ) return;
 
-    // get block, bucket and node
-    circular_list_node_t *block = (circular_list_node_t*)(ptr - HEADER_SIZE);
-    size_t bucket = *(size_t*)block;
-    size_t node = node_from_block( heap->start, bucket, block );
-
-    // merge blocks
-    while( 0 != node ) {
-        // TODO
+    // get bucket and node
+    size_t bucket, node;
+    {
+        circular_list_node_t *block = (circular_list_node_t*)(ptr - HEADER_SIZE);
+        bucket = *(size_t*)block;
+        node = node_from_block( heap->start, bucket, block );
     }
 
-    // add bucket to the free list
-    // TODO
+    // merge blocks by moving up one parent node at a time
+    for(; !bit_tree_flip_parent_value( heap->bit_tree, node ); node = bit_tree_get_parent_index( node ), bucket-- ) {
+        // merge block with sibling/buddy (which we know is free, b/c this block is free, and its parent is unsplit)
+        size_t sibling_node = bit_tree_get_sibling_index( node );
+        circular_list_node_t *buddy_block = node_to_block( heap->start, bucket, sibling_node );
+        circular_list_remove( buddy_block );
+    }
+
+    // add merged block to the free list
+    circular_list_node_t *merged_block = node_to_block( heap->start, bucket, node );
+    circular_list_insert_after( &heap->buckets[bucket], merged_block );
 }

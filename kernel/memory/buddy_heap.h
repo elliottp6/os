@@ -14,7 +14,7 @@
 
 typedef struct buddy_heap {
     void *start, *end;
-    uint64_t bit_tree[NODE_CHUNKS];
+    uint64_t bit_tree[NODE_CHUNKS]; // bit on indicates that the node is partially used (totally used is not considered split, neither is non-used)
     circular_list_node_t buckets[BUCKET_COUNT];
 } buddy_heap_t;
 
