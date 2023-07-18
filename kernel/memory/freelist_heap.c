@@ -45,8 +45,8 @@ void* freelist_heap_allocate( freelist_heap* heap, size_t size ) {
     // see if we should split this block
     // TODO
 
-    // done
-    return block;
+    // return pointer to the block's data
+    return block + sizeof( freelist_block );
 }
 
 void freelist_heap_free( freelist_heap* heap, void* ptr ) {
