@@ -7,7 +7,7 @@
 
 typedef struct freelist_block {
     circular_list_node_t node;
-    size_t data_size;
+    size_t block_size;
 } freelist_block;
 
 typedef struct freelist_heap {
