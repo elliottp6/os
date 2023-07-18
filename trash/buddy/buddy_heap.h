@@ -1,6 +1,6 @@
 #pragma once
 #include <stddef.h>
-#include "circular_list.h"
+#include "../circular_list.h"
 
 // TODO: rename these defines to eliminate conflicts
 #define HEADER_SIZE 8 // 8-byte header for each allocated block
