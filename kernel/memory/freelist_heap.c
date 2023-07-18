@@ -13,16 +13,17 @@ void freelist_heap_init( freelist_heap *heap, void* start, size_t size ) {
     // set fields for heap
     heap->start = start;
     heap->size = size;
-    heap->root = NULL;
+    heap->root.block_size = 0;
+    circular_list_init( (circular_list_node_t*)&heap->root );
 
     // check if we have enough space for root block
     size_t offset = offset_for_forward_align( (size_t)start, sizeof( size_t ) - 1 );
     if( size < offset + MIN_BLOCK_SIZE ) return;
 
-    // initialize root block
-    freelist_block *root = heap->root = (freelist_block*)(start + offset);
-    circular_list_init( (circular_list_node_t*)root );
-    root->block_size = size - offset;
+    // insert first block
+    freelist_block *block = (freelist_block*)(start + offset);
+    circular_list_insert_after( (circular_list_node_t*)&heap->root, (circular_list_node_t*)block );
+    block->block_size = size - offset;
 }
 
 static bool block_is_big_enough( circular_list_node_t *block_node, void *min_block_size ) {
@@ -31,12 +32,11 @@ static bool block_is_big_enough( circular_list_node_t *block_node, void *min_blo
 }
 
 static freelist_block *find_big_enough_block( freelist_heap *heap, size_t min_block_size ) {
-    if( NULL == heap->root ) return NULL;
-    return (freelist_block*)circular_list_find( (circular_list_node_t*)heap->root, block_is_big_enough, &min_block_size );
+    return (freelist_block*)circular_list_find( (circular_list_node_t*)&heap->root, block_is_big_enough, &min_block_size );
 }
 
-void* freelist_heap_allocate( freelist_heap* heap, size_t size ) {
-    // ensure that 'min_block_size' includes the block header, and is aligned to the pointer size
+void *freelist_heap_allocate( freelist_heap *heap, size_t size ) {
+    // min_block_size is size w/ the block header, aligned to the pointer size
     size_t min_block_size = offset_for_forward_align( size + sizeof( freelist_block ), sizeof( size_t ) - 1 );
 
     // see if we can find a block that's big enough
@@ -52,7 +52,7 @@ void* freelist_heap_allocate( freelist_heap* heap, size_t size ) {
         // insert new block w/ the extra free space
         freelist_block *new_block = block + min_block_size;
         new_block->block_size = free_space_size;
-        circular_list_insert_after( (circular_list_node_t*)heap->root, (circular_list_node_t*)new_block );
+        circular_list_insert_after( (circular_list_node_t*)block, (circular_list_node_t*)new_block );
     }
 
     // remove block from the free list

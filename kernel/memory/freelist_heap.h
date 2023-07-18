@@ -11,11 +11,11 @@ typedef struct freelist_block {
 } freelist_block;
 
 typedef struct freelist_heap {
-    void* start;
+    void *start;
     size_t size;
-    freelist_block *root;
+    freelist_block root;
 } freelist_heap;
 
-void freelist_heap_init( freelist_heap *heap, void* start, size_t size );
-void* freelist_heap_allocate( freelist_heap* heap, size_t size );
-void freelist_heap_free( freelist_heap* heap, void* ptr );
+void freelist_heap_init( freelist_heap *heap, void *start, size_t size );
+void *freelist_heap_allocate( freelist_heap *heap, size_t size );
+void freelist_heap_free( freelist_heap *heap, void *ptr );
