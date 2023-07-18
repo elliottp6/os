@@ -49,14 +49,16 @@ void *freelist_heap_allocate( freelist_heap *heap, size_t size ) {
         // shrink block to its minimum size
         block->block_size = min_block_size;
 
-        // insert new block w/ the extra free space
+        // initialize new free block
         freelist_block *new_block = block + min_block_size;
         new_block->block_size = free_space_size;
-        circular_list_insert_after( (circular_list_node_t*)block, (circular_list_node_t*)new_block );
-    }
 
-    // remove block from the free list
-    circular_list_remove( (circular_list_node_t*)block );
+        // replace block w/ the new free block on the free list
+        circular_list_replace( (circular_list_node_t*)block, (circular_list_node_t*)new_block );
+    } else {
+        // remove block from the free list
+        circular_list_remove( (circular_list_node_t*)block )
+    }
 
     // return pointer to the block's data
     return block + sizeof( freelist_block );

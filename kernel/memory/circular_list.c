@@ -25,6 +25,14 @@ void circular_list_remove( circular_list_node_t *node ) {
     next->prior = prior;
 }
 
+void circular_list_replace( circular_list_node_t *node, circular_list_node_t *replacement ) {
+    circular_list_node_t *prior = node->prior, *next = node->next;
+    replacement->next = next;
+    replacement->prior = prior;
+    prior->next = replacement;
+    next->prior = replacement;
+}
+
 circular_list_node_t *circular_list_pop_next( circular_list_node_t *node ) {
     circular_list_node_t *next = node->next;
     if( next == node ) return NULL;
