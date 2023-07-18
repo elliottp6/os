@@ -38,3 +38,11 @@ circular_list_node_t *circular_list_pop_prior( circular_list_node_t *node ) {
     circular_list_remove( prior );
     return prior;
 }
+
+circular_list_node_t *circular_list_find( circular_list_node_t *start, bool (*match)(circular_list_node_t* node, void *closure), void *closure ) {
+    circular_list_node_t *node = start;
+    do {
+        if( match( node, closure ) ) return node;
+    } while( (node = node->next) != start );
+    return NULL;
+}

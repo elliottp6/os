@@ -26,14 +26,29 @@ void freelist_heap_init( freelist_heap *heap, void* start, size_t size ) {
     root->data_size = size - data_offset; // this is always >= 1
 }
 
-static freelist_block *find_free_block( freelist_heap *heap ) {
-    return NULL;
+static bool match_block( circular_list_node_t *node, void *closure ) {
+    freelist_block *block = (freelist_block*)node;
+    size_t data_size = *(size_t*)closure;
+    return block->data_size >= data_size;
+}
+
+static freelist_block *find_big_enough_block( freelist_heap *heap, size_t data_size ) {
+    if( NULL == heap->root ) return NULL;
+    return (freelist_block*)circular_list_find( (circular_list_node_t*)heap->root, match_block, &data_size );
 }
 
 void* freelist_heap_allocate( freelist_heap* heap, size_t size ) {
-    return NULL;
+    // see if we can find a block that's big enough
+    freelist_block *block = find_big_enough_block( heap, size );
+    if( NULL == block ) return NULL;
+
+    // see if we should split this block
+    // TODO
+
+    // done
+    return block;
 }
 
 void freelist_heap_free( freelist_heap* heap, void* ptr ) {
-
+    // TODO
 }
