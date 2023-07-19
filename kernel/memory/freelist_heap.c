@@ -1,33 +1,45 @@
+#include <stdbool.h>
+#include <stdint.h>
+#include "circular_list.h"
 #include "freelist_heap.h"
 
-typedef freelist_used_block_t used_block_t;
-typedef freelist_free_block_t free_block_t;
-typedef freelist_heap_t heap_t;
 typedef circular_list_node_t node_t;
 
-#define MIN_FREE_BLOCK_SIZE (sizeof( free_block_t ) + sizeof( size_t ))
+typedef struct used_block {
+    size_t block_size;
+} used_block_t;
 
-// alignment must be a power of 2 (or else undefined behavior)
-static size_t offset_for_forward_align( size_t x, size_t alignment_minus_1 ) {
-    size_t next = (x + alignment_minus_1) & ~alignment_minus_1;
-    return next - x;
+typedef struct free_block {
+    node_t node;
+    size_t block_size;
+} free_block_t;
+
+typedef struct heap {
+    size_t size;
+    free_block_t root;
+} heap_t;
+
+// align must be a power of 2 (or else undefined behavior)
+static size_t offset_for_upalign( size_t value, size_t align ) {
+    size_t next = (value + align - 1) & ~(align - 1);
+    return next - value;
 }
 
-void freelist_heap_init( heap_t *heap, void *start, size_t size ) {
+void freelist_heap_init( void *heap_start, size_t heap_size ) {
     // initialize heap
-    heap->start = start;
-    heap->size = size;
+    heap_t *heap = (heap_t*)heap_start;
+    heap->size = heap_size;
     heap->root.block_size = 0;
     circular_list_init( (node_t*)&heap->root );
 
-    // check if we have enough space for root free block
-    size_t offset = offset_for_forward_align( (size_t)start, sizeof( size_t ) - 1 );
-    if( size < offset + MIN_FREE_BLOCK_SIZE ) return;
+    // check if we have enough space for root free block after the heap header (and, aligned to the pointer size)
+    size_t offset = offset_for_upalign( (size_t)heap + sizeof( heap_t ), sizeof( size_t ) );
+    if( heap_size < offset + sizeof( free_block_t ) ) return;
 
     // insert first free block
-    free_block_t *free_block = (free_block_t*)(start + offset);
+    free_block_t *free_block = (free_block_t*)(heap_start + offset);
     circular_list_insert_after( (node_t*)&heap->root, (node_t*)free_block );
-    free_block->block_size = size - offset;
+    free_block->block_size = heap_size - offset;
 }
 
 static bool free_block_is_big_enough( node_t *free_block_node, void *min_free_block_size ) {
@@ -35,17 +47,22 @@ static bool free_block_is_big_enough( node_t *free_block_node, void *min_free_bl
     return free_block->block_size >= *(size_t*)min_free_block_size;
 }
 
-void *freelist_heap_allocate( heap_t *heap, size_t size ) {
-    // min_block_size is size w/ the used block header, aligned to the pointer size
-    size_t min_block_size = offset_for_forward_align( size + sizeof( used_block_t ), sizeof( size_t ) - 1 );
+void *freelist_heap_allocate( void *heap_start, size_t object_size ) {
+    // object_size must be aligned to pointer size
+    object_size+= offset_for_upalign( object_size, sizeof( size_t ) );
+
+    // define minimum block size
+    size_t min_block_size = sizeof( used_block_t ) + object_size;
+    if( min_block_size < sizeof( free_block_t ) ) min_block_size = sizeof( free_block_t );
 
     // see if we can find a free block that's big enough
+    heap_t *heap = (heap_t*)heap_start;
     free_block_t *free_block = (free_block_t*)circular_list_find( (node_t*)&heap->root, free_block_is_big_enough, &min_block_size );
     if( NULL == free_block ) return NULL;
 
     // if there's enough free space in the block: split it
     size_t free_space_size = free_block->block_size - min_block_size;
-    if( free_space_size >= MIN_FREE_BLOCK_SIZE ) {
+    if( free_space_size >= sizeof( free_block_t ) ) {
         // shrink block to its minimum size
         free_block->block_size = min_block_size;
 
@@ -64,8 +81,8 @@ void *freelist_heap_allocate( heap_t *heap, size_t size ) {
     used_block_t* used_block = (used_block_t*)free_block;
     used_block->block_size = free_block->block_size;
 
-    // return pointer to the block's data
-    return used_block + sizeof(used_block_t);
+    // return pointer to the used block's data
+    return used_block + sizeof( used_block_t );
 }
 
 static void try_merge_left( free_block_t *left, free_block_t *right ) {
@@ -80,7 +97,7 @@ static void try_merge_left( free_block_t *left, free_block_t *right ) {
     circular_list_remove( (node_t*)right );
 }
 
-void freelist_heap_free( heap_t *heap, void* ptr ) {
+void freelist_heap_free( void *heap_start, void* ptr ) {
     // get used block & block_size
     used_block_t *used_block = (used_block_t*)(ptr - sizeof(used_block_t));
     size_t block_size = used_block->block_size;
@@ -91,6 +108,7 @@ void freelist_heap_free( heap_t *heap, void* ptr ) {
 
     // insert into freelist at correct memory location
     // WARNING: this is an O(n) linear search across the heap (the most expensive operation we have in the freelist_heap)
+    heap_t *heap = (heap_t*)heap_start;
     node_t *root = &heap->root.node;
     node_t *node = root->next;
     while( node != root && (uintptr_t)node < (uintptr_t)free_block ) node = node->next;
