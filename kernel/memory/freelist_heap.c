@@ -35,16 +35,12 @@ static bool free_block_is_big_enough( node_t *free_block_node, void *min_free_bl
     return free_block->block_size >= *(size_t*)min_free_block_size;
 }
 
-static free_block_t *find_big_enough_free_block( heap_t *heap, size_t min_free_block_size ) {
-    return (free_block_t*)circular_list_find( (node_t*)&heap->root, free_block_is_big_enough, &min_free_block_size );
-}
-
 void *freelist_heap_allocate( heap_t *heap, size_t size ) {
     // min_block_size is size w/ the used block header, aligned to the pointer size
     size_t min_block_size = offset_for_forward_align( size + sizeof( used_block_t ), sizeof( size_t ) - 1 );
 
     // see if we can find a free block that's big enough
-    free_block_t *free_block = find_big_enough_free_block( heap, min_block_size );
+    free_block_t *free_block = (free_block_t*)circular_list_find( (node_t*)&heap->root, free_block_is_big_enough, &min_block_size );
     if( NULL == free_block ) return NULL;
 
     // if there's enough free space in the block: split it
@@ -69,15 +65,24 @@ void *freelist_heap_allocate( heap_t *heap, size_t size ) {
     used_block->block_size = free_block->block_size;
 
     // return pointer to the block's data
-    return used_block + sizeof( used_block_t );
+    return used_block + sizeof(used_block_t);
 }
 
-void freelist_heap_free( heap_t* heap, void* ptr ) {
-    // get block & block_size
-    //used_block_t *used_block = (used_block_t*)(ptr - sizeof(used_block_t));
-    //size_t block_size = used_block->block_size;
+void freelist_heap_free( heap_t *heap, void* ptr ) {
+    // get used block & block_size
+    used_block_t *used_block = (used_block_t*)(ptr - sizeof(used_block_t));
+    size_t block_size = used_block->block_size;
 
-    // TODO: insert into freelist at correct memory location
+    // turn this into a free block
+    free_block_t *free_block = (free_block_t*)used_block;
+    free_block->block_size = block_size;
 
-    // TODO: defragement adjacent blocks
+    // insert into freelist at correct memory location
+    node_t *root = &heap->root.node;
+    node_t *node = root->next;
+    while( node != root && (uintptr_t)node < (uintptr_t)free_block ) node = node->next;
+    circular_list_insert_before( node, (node_t*)free_block );
+    
+    // defrag left & right sides of free block
+    // TODO
 }
