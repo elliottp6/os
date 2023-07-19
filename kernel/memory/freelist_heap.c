@@ -68,6 +68,18 @@ void *freelist_heap_allocate( heap_t *heap, size_t size ) {
     return used_block + sizeof(used_block_t);
 }
 
+static void try_merge_left( free_block_t *left, free_block_t *right ) {
+    // cannot merge with root block
+    if( 0 == left->block_size || 0 == right->block_size ) return;
+
+    // right must touch left to be mergeable
+    if( right != left + left->block_size ) return;
+
+    // merge right block into left
+    left->block_size+= right->block_size;
+    circular_list_remove( (node_t*)right );
+}
+
 void freelist_heap_free( heap_t *heap, void* ptr ) {
     // get used block & block_size
     used_block_t *used_block = (used_block_t*)(ptr - sizeof(used_block_t));
@@ -78,11 +90,13 @@ void freelist_heap_free( heap_t *heap, void* ptr ) {
     free_block->block_size = block_size;
 
     // insert into freelist at correct memory location
+    // WARNING: this is an O(n) linear search across the heap (the most expensive operation we have in the freelist_heap)
     node_t *root = &heap->root.node;
     node_t *node = root->next;
     while( node != root && (uintptr_t)node < (uintptr_t)free_block ) node = node->next;
     circular_list_insert_before( node, (node_t*)free_block );
-    
-    // defrag left & right sides of free block
-    // TODO
+
+    // defragment heap by trying to merge this block with its right and left blocks
+    try_merge_left( free_block, (free_block_t*)free_block->node.next );
+    try_merge_left( (free_block_t*)free_block->node.prior, free_block );
 }
