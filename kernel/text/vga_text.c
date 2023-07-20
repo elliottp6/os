@@ -57,7 +57,7 @@ static void write_cell( vga_text_cell cell ) {
 }
 
 void vga_text_print( const char* str, char color ) {
-    size_t len = strlen( str );
+    size_t len = string_length( str );
     for( int i = 0; i < len; i++ ) write_cell( make_cell( str[i], color ) );
 }
 

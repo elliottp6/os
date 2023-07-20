@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "main.h"
+#include "text/string.h"
 #include "text/vga_text.h"
 
 static void panic( const char* details ) {
@@ -27,6 +28,10 @@ void main() {
     vga_text_print( "Welcome to the kernel!\n", 0x17 );
 
     // initialize the kernel heap
+    vga_text_print( "testing string_int64_to_temp for -1054: ", 0x17 );
+    vga_text_print( string_int64_to_temp( -1054 ), 0x17 );
+    vga_text_print( "\n", 0x17 );
+
     // TODO
 
     // TODO: do kernel main stuff

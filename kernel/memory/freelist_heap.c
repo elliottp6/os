@@ -47,7 +47,7 @@ static bool free_block_is_big_enough( node_t *free_block_node, void *min_free_bl
     return free_block->block_size >= *(size_t*)min_free_block_size;
 }
 
-void *freelist_heap_allocate( void *heap_start, size_t object_size ) {
+void *freelist_heap_alloc( void *heap_start, size_t object_size ) {
     // object_size must be aligned to pointer size
     object_size+= offset_for_upalign( object_size, sizeof( size_t ) );
 
