@@ -33,14 +33,11 @@ void main() {
     vga_text_print( string_int64_to_temp( -1054 ), 0x17 );
     vga_text_print( "\n", 0x17 );
 
-    // try to access memory that is not mapped (i.e. > 2MB)
-    // yes, this causes a crash!
-    /*
-    int64_t *p = (int64_t*)0x300000;
+    // access the very last byte of memory that is mapped by the page table
+    char *p = (char*)0x200000 - 1;
     vga_text_print( "reading memory that is not mapped by page table: ", 0x17 );
-    vga_text_print( string_int64_to_temp( *p ), 0x17 );
+    vga_text_print( string_int64_to_temp( (int64_t)*p ), 0x17 );
     vga_text_print( "\n", 0x17 );
-    */
 
     // initialize the kernel heap
     // TODO: we must first expand out paging to address a larger amount of memory
