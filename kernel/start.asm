@@ -3,6 +3,7 @@
 %define PAGE_PRESENT (1 << 0)
 %define PAGE_WRITE (1 << 1)
 %define KERNEL_ADDRESS 0x100000
+%define KERNEL_STACK_ADDRESS 0x200000
 %define KERNEL_STACK_SIZE 4096
 %define LONG_MODE_PAGE_TABLE_ADDRESS 0xA000
 
@@ -172,8 +173,13 @@ start64:
     mov rcx, 500                      ; Since we are clearing uint64_t over here, we put the count as Count/4.
     mov rax, 0x1F201F201F201F20       ; Set the value to set the screen to: Blue background, white foreground, blank spaces.
     rep stosq                         ; Clear the entire screen. 
- 
-    ; TODO: setup a new 1MB stack right after the kernel
+
+    ; setup a 1MB stack @ 2MB
+    mov eax, KERNEL_STACK_ADDRESS
+    mov ebp, eax ; set stack base pointer
+    mov esp, ebp ; set stack pointer
+
+    ; TODO: alternatively, setup a new 1MB stack right after the kernel
     ;pop rax ; get the KERNEL_SECTORS that we pushed from the bootloader
     ;add rsp, 4 ; adjust stack b/c when we pushed it was only 32-bits not 64-bits
     ;mov eax, eax ; blank our the higher 32-bits
