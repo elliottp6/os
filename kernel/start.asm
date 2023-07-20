@@ -173,16 +173,14 @@ start64:
     mov rax, 0x1F201F201F201F20       ; Set the value to set the screen to: Blue background, white foreground, blank spaces.
     rep stosq                         ; Clear the entire screen. 
  
-    ; setup a new, larger stack for the kernel to replace the bootloader's stack
-    ; we'll stick it STACK_SIZE above the end of the kernel
-    ; TODO: later on we'll want to use page protection to ensure that we cannot have a stack overflow
-    ;pop rax ; get the KERNEL_SECTORS into EAX (this 32-bit value came from the bootloader)
-    ;add rsp, 4
-    ;mov eax, eax ; keep just the 32-bit part of the stack value
-    ;shl eax, 9 ; convert into bytes by shifting left by 9 (i.e. multiplying by 512)
-    ;add eax, KERNEL_ADDRESS + KERNEL_STACK_SIZE; convert into physical address
-    ;mov ebp, eax
-    ;mov esp, ebp
+    ; TODO: setup a new 1MB stack right after the kernel
+    ;pop rax ; get the KERNEL_SECTORS that we pushed from the bootloader
+    ;add rsp, 4 ; adjust stack b/c when we pushed it was only 32-bits not 64-bits
+    ;mov eax, eax ; blank our the higher 32-bits
+    ;mul rax, 512 ; convert # sectors into actual bytes
+    ;add eax, KERNEL_ADDRESS ; convert into address
+    ;mov ebp, eax ; set base stack pointer
+    ;mov esp, ebp ; stack stack pointer
 
     ; re-enable interrupts
     sti
