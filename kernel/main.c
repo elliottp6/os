@@ -4,6 +4,7 @@
 #include "main.h"
 #include "text/string.h"
 #include "text/vga_text.h"
+#include "memory/kernel_heap.h"
 
 static void panic( const char* details ) {
     // print messages
@@ -27,12 +28,14 @@ void main() {
     vga_text_clear( 0x17 );
     vga_text_print( "Welcome to the kernel!\n", 0x17 );
 
-    // initialize the kernel heap
+    // test 'string_int64_to_temp'
     vga_text_print( "testing string_int64_to_temp for -1054: ", 0x17 );
     vga_text_print( string_int64_to_temp( -1054 ), 0x17 );
     vga_text_print( "\n", 0x17 );
 
-    // TODO
+    // initialize the kernel heap
+    // TODO: we must first expand out paging to address a larger amount of memory
+    // kernel_heap_init();
 
     // TODO: do kernel main stuff
     // divide_by_zero();
