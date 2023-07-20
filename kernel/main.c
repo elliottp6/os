@@ -39,6 +39,9 @@ void main() {
     vga_text_print( string_int64_to_temp( (int64_t)*p ), 0x17 );
     vga_text_print( "\n", 0x17 );
 
+    // setup a much larger page table
+    // TODO
+
     // initialize the kernel heap
     // TODO: we must first expand out paging to address a larger amount of memory
     // kernel_heap_init();
