@@ -4,6 +4,7 @@
 #include "main.h"
 #include "text/string.h"
 #include "text/vga_text.h"
+#include "memory/paging.h"
 #include "memory/kernel_heap.h"
 
 static void panic( const char* details ) {
@@ -33,17 +34,17 @@ void main() {
     vga_text_print( string_int64_to_temp( -1054 ), 0x17 );
     vga_text_print( "\n", 0x17 );
 
-    // access the very last byte of memory that is mapped by the page table
+    // test accessing last byte of memory that is mapped by the start.asm 2MB page table
     char *p = (char*)0x200000 - 1;
-    vga_text_print( "reading memory that is not mapped by page table: ", 0x17 );
+    vga_text_print( "reading last byte of memory that is mapped by page table: ", 0x17 );
     vga_text_print( string_int64_to_temp( (int64_t)*p ), 0x17 );
     vga_text_print( "\n", 0x17 );
 
-    // setup a much larger page table
-    // TODO
+    // switch to much larger kernel page tables
+    // TODO: might also want to enable write protection against the kernel's code
+    paging_init_kernel_page_tables();
 
     // initialize the kernel heap
-    // TODO: we must first expand out paging to address a larger amount of memory
     // kernel_heap_init();
 
     // TODO: do kernel main stuff

@@ -1,18 +1,39 @@
 #include <stdint.h>
 #include "paging.h"
 
-#define PAGE_PRESENT 1
-#define PAGE_WRITE 2
-#define PAGE_MAP_LENGTH 512
-#define PAGE_MAP_MAX_MEMORY 0x10000000 // 256 MB
+#define PAGE_FLAG_PRESENT 1
+#define PAGE_FLAG_WRITE 2
+#define PAGE_SIZE 4096
+#define PAGE_BITS 12
+#define PAGE_TABLE_BITS 9
+#define PAGE_TABLE_ENTRIES 512
+#define PAGE_TABLE_MASK 511
+#define PAGE_TABLE_MAX_MEMORY 0x10000000 // 256 MB
 
-// the PML4, PDPT, PD, and PT all look exactly the same
-typedef struct page_map {
-    uint64_t entries[PAGE_MAP_LENGTH];
-} page_map_t;
+typedef struct page_table {
+    uint64_t entries[PAGE_TABLE_ENTRIES];
+} page_table_t;
 
-void paging_init_kernel_map() {
+static size_t shift_right_plus_remainder( size_t x, size_t shift ) {
+    size_t mask = (1 << shift) - 1;
+    return (x >> shift) | ((x & mask) > 0);
+}
 
+void paging_init_kernel_page_tables() {
+    // calculate how many total pages we need for each page table level
+    //size_t kernel_pages = shift_right_plus_remainder( PAGE_TABLE_MAX_MEMORY, PAGE_BITS );
+    //size_t table0_length = shift_right_plus_remainder( kernel_pages, PAGE_TABLE_BITS ); // PT (page table)
+
+    /*
+    size_t kernel_pages = (PAGE_TABLE_MAX_MEMORY >> PAGE_BITS) + 
+           table0_entries = kernel_pages >> PAGE_TABLE_BITS,    
+           table1_entries = table0_entries >> PAGE_TABLE_BITS,  // PD (page directory)
+           table2_entries = table1_entries >> PAGE_TABLE_BITS,  // PDPT (page directory pointer table)
+           table3_entries = table2_entries >> PAGE_TABLE_BITS;  // PML4 (page map level 4)
+    */
+    // 
+
+    // 
 
     /*
     ; es:edi must point to page-aligned 16KB buffer (for the PML4, PDPT, PD and a PT)
