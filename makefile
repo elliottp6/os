@@ -11,7 +11,7 @@ KERNEL_FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels 
 # build OS
 os: bin/boot.bin bin/kernel.bin
 	cat bin/boot.bin bin/kernel.bin > bin/disk.bin
-	qemu-system-x86_64 -hda bin/disk.bin -display gtk,zoom-to-fit=on
+	qemu-system-x86_64 -m 1G -hda bin/disk.bin -display gtk,zoom-to-fit=on
 
 # assembler bootloader
 bin/boot.bin: boot/boot.asm bin/kernel.bin
