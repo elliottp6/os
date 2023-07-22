@@ -21,23 +21,25 @@ static size_t shift_right_round_up( size_t x, size_t shift ) {
     return (x >> shift) | (remainder > 0);
 }
 
-// note: *num_pagetables must point to a an array of size_t w/ length PAGEMAP_LEVELS
-static size_t get_pagemap_dimensions( size_t memory_size, size_t *num_pages, size_t *num_pagetables ) {
+// note: *num_pagetables_per_level must point to a an array of size_t w/ length PAGEMAP_LEVELS
+static size_t get_pagemap_dimensions( size_t memory_size, size_t *num_pages, size_t *num_pagetables_per_level ) {
     // calculate # of pages needed to map memory from 0 to PAGEMAP_MAX_MEMORY
     *num_pages = shift_right_round_up( memory_size, PAGE_BITS );
 
     // calculate # of pagetables needed at each level in the pagemap hierarchy
     size_t pagemap_size = 0;
     for( size_t i = 0; i < PAGEMAP_LEVELS; i++ ) {
-        num_pagetables[i] = shift_right_round_up( i > 0 ? num_pagetables[i - 1] : *num_pages, PAGETABLE_BITS );
-        pagemap_size+= num_pagetables[i] * sizeof( pagetable_t );
+        num_pagetables_per_level[i] = shift_right_round_up( i > 0 ? num_pagetables_per_level[i - 1] : *num_pages, PAGETABLE_BITS );
+        pagemap_size+= num_pagetables_per_level[i] * sizeof( pagetable_t );
     }
 
     // return # of bytes required for the entire pagemap
     return pagemap_size;
 }
 
-static void paging_print_pagemap_dimensions( size_t num_pages, size_t *num_pagetables, size_t pagemap_size ) {
+// TODO: this can probably be removed later, but for now it was useful just to double check the get_pagemap_dimensions function
+// later on, we really should write proper tests, and have them run in POST
+static void paging_print_pagemap_dimensions( size_t num_pages, size_t *num_pagetables_per_level, size_t pagemap_size ) {
     // print out dimensions
     vga_text_print( "pagemap dimensions for memory_size ", 0x17 );
     vga_text_print( string_int64_to_temp( (int64_t)PAGEMAP_MAX_MEMORY ), 0x17 );
@@ -47,7 +49,7 @@ static void paging_print_pagemap_dimensions( size_t num_pages, size_t *num_paget
         vga_text_print( "\n  # tables for level ", 0x17 );
         vga_text_print( string_int64_to_temp( (int64_t)i ), 0x17 );
         vga_text_print( ": ", 0x17 );
-        vga_text_print( string_int64_to_temp( (int64_t)num_pagetables[i] ), 0x17 ); 
+        vga_text_print( string_int64_to_temp( (int64_t)num_pagetables_per_level[i] ), 0x17 ); 
     }
     vga_text_print( "\n  pagemap size: ", 0x17 );
     vga_text_print( string_int64_to_temp( (int64_t)pagemap_size ), 0x17 );
@@ -57,11 +59,20 @@ static void paging_print_pagemap_dimensions( size_t num_pages, size_t *num_paget
 void paging_init_kernel_pagemap() {
     // get pagemap dimensions
     size_t num_pages,
-           num_pagetables[PAGEMAP_LEVELS],
-           pagemap_size = get_pagemap_dimensions( PAGEMAP_MAX_MEMORY, &num_pages, num_pagetables );
+           num_pagetables_per_level[PAGEMAP_LEVELS],
+           pagemap_size = get_pagemap_dimensions( PAGEMAP_MAX_MEMORY, &num_pages, num_pagetables_per_level );
 
-    // let user know
-    paging_print_pagemap_dimensions( num_pages, num_pagetables, pagemap_size );
+    // print this data out to the user
+    paging_print_pagemap_dimensions( num_pages, num_pagetables_per_level, pagemap_size );
+
+    // TODO: in start.asm, we must use hugepages, so we can access all memory in system by default
+    //       this will allow enough access to put this new pagemap where we would like
+
+    // TODO: allocate the pagemap
+
+    // TODO: populate the pagemap
+
+    // TODO: switch the CR3 register to point to the pagemap
 
     // return the # of bytes needed for the entire pagemap
     //return pagemap_size;
