@@ -3,15 +3,17 @@
 #include "circular_list.h"
 #include "freelist_heap.h"
 
-#define PANIC_ON_OUT_OF_MEMORY
 #define TRACE
+#define PANIC_ON_OUT_OF_MEMORY
 
 #ifdef TRACE
 #include "../text/string.h"
 #include "../text/vga_text.h"
 #endif
 
+#ifdef PANIC_ON_OUT_OF_MEMORY
 #include "../main.h"
+#endif
 
 typedef circular_list_node_t node_t;
 
