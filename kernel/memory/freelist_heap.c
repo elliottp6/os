@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include "circular_list.h"
 #include "freelist_heap.h"
+#include "../main.h"
 
 typedef circular_list_node_t node_t;
 
@@ -58,7 +59,10 @@ void *freelist_heap_alloc( void *heap_start, size_t object_size ) {
     // see if we can find a free block that's big enough
     heap_t *heap = (heap_t*)heap_start;
     free_block_t *free_block = (free_block_t*)circular_list_find( (node_t*)&heap->root, free_block_is_big_enough, &min_block_size );
-    if( NULL == free_block ) return NULL;
+    if( NULL == free_block ) {
+        panic( "no free blocks in heap\n" );
+        return NULL;
+    }
 
     // if there's enough free space in the block: split it
     size_t free_space_size = free_block->block_size - min_block_size;

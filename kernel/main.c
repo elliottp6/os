@@ -7,7 +7,7 @@
 #include "memory/paging.h"
 #include "memory/kernel_heap.h"
 
-static void panic( const char* details ) {
+void panic( const char* details ) {
     // print messages
     vga_text_print( "System panic!\n", 0x4F );
     if( NULL != details ) vga_text_print( details, 0x4F );
@@ -46,9 +46,11 @@ void main() {
     kernel_heap_init();
 
     // test the kernel heap
-    int64_t *x = (int64_t*)kernel_heap_alloc( 8 );
-    *x = 618;
-    // TODO: do some heap diagnostics?
+    // TODO: major bug here! the heap returns NULL here!
+    int64_t *ptr = (int64_t*)kernel_heap_alloc( 8 );
+    vga_text_print( "1st object allocated on the kernel heap @ ", 0x17 );
+    vga_text_print( string_int64_to_temp( (int64_t)ptr ), 0x17 );
+    vga_text_print( "\n", 0x17 );
 
     // TODO: do kernel main stuff
     // divide_by_zero();
