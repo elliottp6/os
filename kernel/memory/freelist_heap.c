@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include "circular_list.h"
 #include "freelist_heap.h"
+#include "../main.h" // for panic
 
 #define TRACE
 #define PANIC_ON_OUT_OF_MEMORY
@@ -9,10 +10,6 @@
 #ifdef TRACE
 #include "../text/string.h"
 #include "../text/vga_text.h"
-#endif
-
-#ifdef PANIC_ON_OUT_OF_MEMORY
-#include "../main.h"
 #endif
 
 typedef circular_list_node_t node_t;
@@ -32,26 +29,29 @@ typedef struct heap {
 } heap_t;
 
 // align must be a power of 2 (or else undefined behavior)
-static size_t offset_for_upalign( size_t value, size_t align ) {
-    size_t next = (value + align - 1) & ~(align - 1);
-    return next - value;
+static size_t upalign( size_t value, size_t align ) {
+    return (value + align - 1) & ~(align - 1);
 }
 
 void freelist_heap_init( void *heap_start, size_t heap_size ) {
+    // heap_start must be aligned with size_t
+    if( (size_t)heap_start != upalign( (size_t)heap_start, sizeof( size_t ) ) ) {
+        panic( "heap-start must 8-byte aligned\n" );
+    }
+
     // initialize heap
     heap_t *heap = (heap_t*)heap_start;
     heap->size = heap_size;
     heap->root.size = 0;
     circular_list_init( (node_t*)&heap->root );
 
-    // check if we have enough space for root free block after the heap header (and, aligned to the pointer size)
-    size_t offset = sizeof( heap_t ) + offset_for_upalign( (size_t)heap, sizeof( size_t ) );
-    if( heap_size < offset + sizeof( free_block_t ) ) return;
+    // check if we have enough space for 1st free block
+    if( heap_size < sizeof( heap_t ) + sizeof( free_block_t ) ) return;
 
     // insert first free block
-    free_block_t *free_block = (free_block_t*)(heap_start + offset);
+    free_block_t *free_block = (free_block_t*)(heap_start + sizeof( heap_t ) );
     circular_list_insert_after( (node_t*)&heap->root, (node_t*)free_block );
-    free_block->size = heap_size - offset;
+    free_block->size = heap_size - sizeof( heap_t );
 
     #ifdef TRACE
     vga_text_print( "freelist_heap_init: free_block @ ", 0x17 );
@@ -60,8 +60,6 @@ void freelist_heap_init( void *heap_start, size_t heap_size ) {
     vga_text_print( string_int64_to_temp( (int64_t)free_block->size ), 0x17 );
     vga_text_print( " root->next ", 0x17 );
     vga_text_print( string_int64_to_temp( (int64_t)(heap->root.node.next) ), 0x17 );
-    vga_text_print( " heap offset: ", 0x17 );
-    vga_text_print( string_int64_to_temp( (int64_t)offset ), 0x17 );
     vga_text_print( "\n", 0x17 );
     #endif
 }
@@ -84,7 +82,7 @@ static bool free_block_is_big_enough( node_t *free_block_node, void *min_free_bl
 
 void *freelist_heap_alloc( void *heap_start, size_t object_size ) {
     // object_size must be aligned to pointer size
-    object_size+= offset_for_upalign( object_size, sizeof( size_t ) );
+    object_size = upalign( object_size, sizeof( size_t ) );
 
     // define minimum block size
     size_t min_block_size = sizeof( used_block_t ) + object_size;
