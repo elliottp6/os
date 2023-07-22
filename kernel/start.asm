@@ -44,12 +44,14 @@ enter_long_mode:
     nop
     lidt [IDT] ; load a zero-length interrupt-descriptor-table, which means any NMI (non-maskable-interrupt) will cause a triple fault (a non-recoverable fault, which reboots the CPU, or in qemu it will dump w/ the instruction pointer @ instruction that caused the first exception.)
 
-    ; must enable PGE, PAE and PSE (for 2MB pages) on CR4 before we can enter long mode
-    ; enable PGE (page global enable), PAE (physical address extension) and PSE (page size extension, on = 2MB huge pages)
-    mov eax, 10110000b
+    ; set CR4 flags
+    ; enable 5th bit of CR4, which turns on PAE (physical address extension). This is required to enter long mode.
+    ; enable 7th bit of CR4, which turns on PGE (page global enable). This is not really used anymore so can be left out.
+    mov eax, cr4
+    or eax, (1 << 5) | (1 << 7)
     mov cr4, eax
 
-    ; CR3 register must point to the PML4 (page map level 4)
+    ; set CR3 to point to the PML4 (page map level 4)
     mov edx, edi
     mov cr3, edx
 

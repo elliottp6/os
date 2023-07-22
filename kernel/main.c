@@ -27,24 +27,28 @@ static void divide_by_zero() {
 void main() {
     // clear background to blue, and display welcome message
     vga_text_clear( 0x17 );
-    vga_text_print( "Welcome to the kernel!\n", 0x17 );
+    vga_text_print( "Welcome to the 64-bit kernel!\n", 0x17 );
 
+    // TODO: convert this into a legit test
     // test 'string_int64_to_temp'
     vga_text_print( "testing string_int64_to_temp for -1054: ", 0x17 );
     vga_text_print( string_int64_to_temp( -1054 ), 0x17 );
     vga_text_print( "\n", 0x17 );
 
+    // TODO: convert this into a legit test
     // test accessing last byte of memory (1GB)
     char *p = (char*)0x40000000 - 1;
     vga_text_print( "reading last byte of memory (address 1GB - 1): ", 0x17 );
     vga_text_print( string_int64_to_temp( (int64_t)*p ), 0x17 );
     vga_text_print( "\n", 0x17 );
 
-    // switch to a customized kernel pagemap
-    paging_init_kernel_pagemap();
-
     // initialize the kernel heap
-    // kernel_heap_init();
+    kernel_heap_init();
+
+    // test the kernel heap
+    int64_t *x = (int64_t*)kernel_heap_alloc( 8 );
+    *x = 618;
+    // TODO: do some heap diagnostics?
 
     // TODO: do kernel main stuff
     // divide_by_zero();
