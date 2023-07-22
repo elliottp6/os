@@ -45,7 +45,7 @@ void main() {
     // initialize the kernel heap
     kernel_heap_init();
 
-    // test the kernel heap
+    // test the kernel heap. 1st object should be 40 bytes away from the heap's 2MB start, b/c we need 32 bytes for the heap's header, and then 8 bytes for the block's size.
     void *obj = kernel_heap_alloc( 8 );
     if( (int64_t)obj != (int64_t)(0x200000 + 40) ) panic( "kernel_heap_alloc: 1st allocated object must be 8 bytes after the heap's header" );
     vga_text_print( "kernel_heap_alloc: 1st object allocated @ ", 0x17 );
