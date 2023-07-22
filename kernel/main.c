@@ -46,10 +46,10 @@ void main() {
     kernel_heap_init();
 
     // test the kernel heap
-    // TODO: major bug here! the heap returns NULL here!
-    int64_t *ptr = (int64_t*)kernel_heap_alloc( 8 );
-    vga_text_print( "1st object allocated on the kernel heap @ ", 0x17 );
-    vga_text_print( string_int64_to_temp( (int64_t)ptr ), 0x17 );
+    void *obj = kernel_heap_alloc( 8 );
+    if( (int64_t)obj != (int64_t)(0x200000 + 40) ) panic( "kernel_heap_alloc: 1st allocated object must be 8 bytes after the heap's header" );
+    vga_text_print( "kernel_heap_alloc: 1st object allocated @ ", 0x17 );
+    vga_text_print( string_int64_to_temp( (int64_t)obj ), 0x17 );
     vga_text_print( "\n", 0x17 );
 
     // TODO: do kernel main stuff
