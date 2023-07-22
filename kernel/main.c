@@ -34,15 +34,13 @@ void main() {
     vga_text_print( string_int64_to_temp( -1054 ), 0x17 );
     vga_text_print( "\n", 0x17 );
 
-    // test accessing last byte of memory that is mapped by the start.asm 2MB page table
-    char *p = (char*)0x200000 - 1;
-    vga_text_print( "reading last byte of memory that is mapped by page table: ", 0x17 );
+    // test accessing last byte of memory (1GB)
+    char *p = (char*)0x40000000 - 1;
+    vga_text_print( "reading last byte of memory (address 1GB - 1): ", 0x17 );
     vga_text_print( string_int64_to_temp( (int64_t)*p ), 0x17 );
     vga_text_print( "\n", 0x17 );
 
     // switch to a customized kernel pagemap
-    // TODO: don't need to do this now, b/c start.asm now uses 2MB pages, giving us access to the full 1GB of space
-    // we could probably do things even more simply if we wanted to, actually, by using the 1GB hugepage, and then here we can get more granular
     paging_init_kernel_pagemap();
 
     // initialize the kernel heap

@@ -2,20 +2,11 @@
 %define DATA_SEG 0x10
 %define PAGE_FLAG_PRESENT (1 << 0)
 %define PAGE_FLAG_WRITE (1 << 1)
+%define PAGE_FLAG_HUGE (1 << 7)
 %define KERNEL_ADDRESS 0x100000
 %define KERNEL_STACK_ADDRESS 0x200000
 %define KERNEL_STACK_SIZE 4096
 %define LONG_MODE_PAGE_MAP_ADDRESS 0xA000
-
-; ENABLE THESE FOR 4096-size pages w/ 2MB of initial memory acccess:
-;%define PAGE_FLAG_HUGE 0
-;%define PAGE_SIZE 4096
-;%define PT_OFFSET 0x3000
-
-; OR: ENABLE THESE FOR 2MB-size pages w/ 1GB of initial memory access:
-%define PAGE_FLAG_HUGE (1 << 7)
-%define PAGE_SIZE 0x200000
-%define PT_OFFSET 0x2000
 
 global start32 ; tell linker where to find this entry point
 extern main ; allows start.asm to call into main.c
@@ -35,9 +26,9 @@ start32:
     call detect_long_mode
     jc failed_to_support_long_mode
 
-    ; build the long-mode page map
+    ; build a 1GB identity pagemap
     mov edi, LONG_MODE_PAGE_MAP_ADDRESS ; edi argument tells 'enter_long_mode' where to put page data
-    call build_long_mode_page_map
+    call build_long_mode_1GB_identity_pagemap
 
     ; enter long mode
     mov edi, LONG_MODE_PAGE_MAP_ADDRESS
@@ -79,45 +70,26 @@ enter_long_mode:
     ; select the 64-bit code segment while jumping to 64-bit main
     jmp CODE_SEG:start64
 
-; es:edi must point to page-aligned 16KB buffer (for the PML4, PDPT, PD and a PT)
+; es:edi must point to page-aligned 8KB buffer (for the PML4 & PDPT, where PDPT will point directly to our first 1GB)
 ; ss:esp must point to memory that can be used as a small stack
-; this creates an identity page map
-build_long_mode_page_map:
-    ; zero-out the entire 16KB buffer
+; this creates an identity pagemap for the first 1GB of RAM
+build_long_mode_1GB_identity_pagemap:
+    ; zero-out the entire 8KB buffer
     push di ; backup DI (otherwise, clobbered by rep stosd)
-    mov ecx, 0x1000 ; set ECX to 4096
+    mov ecx, 2048 ; set ECX to 2048 (because 2048 * 4 = 8KB)
     xor eax, eax ; clear EAX
     cld ; clear direction-flag
     rep stosd ; repeat-while-equal: store contents of eax into [edi], inc/dec edi each time by 4 bytes each time (4096 loops = 16KB)
     pop di ; restore DI
     
-    ; write level 3 pagetable
+    ; write the 1st entry of the level 4 pagetable (PML4) to point to the level 3 pagetable (PDPT)
     lea eax, [es:di + 0x1000] ; put address of PDPT into EAX
     or eax, PAGE_FLAG_PRESENT | PAGE_FLAG_WRITE ; page present & writable
     mov [es:di], eax ; store value of EAX into first PML4E
 
-    ; write level 2 pagetabel
-    lea eax, [es:di + 0x2000] ; put address of PD into EAX
-    or eax, PAGE_FLAG_PRESENT | PAGE_FLAG_WRITE
-    mov [es:di + 0x1000], eax ; store value of EAX into first PDPT
- 
-    ; write level 1 pagetable
-    lea eax, [es:di + 0x3000] ; put address of PT into EAX
-    or eax, PAGE_FLAG_PRESENT | PAGE_FLAG_WRITE
-    mov [es:di + 0x2000], eax ; store value of EAX into first PDE
-
-    ; write level 0 pagetable
-    ; note that if we're using 2MB pages, then this will actually write the level 1 pagetable (and we won't need the full 16KB, just 12KB)
-    push di ; save DI
-    lea di, [di + PT_OFFSET] ;  point DI to the PT_OFFSET
-    mov eax, PAGE_FLAG_PRESENT | PAGE_FLAG_WRITE | PAGE_FLAG_HUGE; EAX starts pointing to memory address 0 w/ flags
-.page_table_loop:
-    mov [es:di], eax ; first page table entry points to memory address 0
-    add eax, PAGE_SIZE ; next one points to PAGE_SIZE later physical address
-    add di, 8 ; each page table entry is an 8 byte pointer
-    cmp eax, PAGE_SIZE * 512 ; stop @ 512 pages
-    jb .page_table_loop ; jump if eax is below 2MB
-    pop di ; restore DI
+    ; write the 1st entry of the level 3 pagetable (PDPT) to point to the physical address 0 using a 1GB hugepage
+    mov eax, PAGE_FLAG_PRESENT | PAGE_FLAG_WRITE | PAGE_FLAG_HUGE
+    mov [es:di + 0x1000], eax
     ret
 
 ; print 'F' character, to indicate that long-mode is not supported

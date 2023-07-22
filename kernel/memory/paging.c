@@ -3,8 +3,9 @@
 #include "../text/string.h"
 #include "../text/vga_text.h"
 
-#define PAGE_FLAG_PRESENT 1
-#define PAGE_FLAG_WRITE 2
+#define PAGE_FLAG_PRESENT (1 << 0)
+#define PAGE_FLAG_WRITE (1 << 1)
+#define PAGE_FLAG_HUGE (1 << 7)
 #define PAGE_BITS 12
 #define PAGE_SIZE (1 << PAGE_BITS)
 #define PAGETABLE_BITS 9
