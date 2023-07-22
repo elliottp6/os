@@ -34,7 +34,7 @@ start32:
     mov edi, LONG_MODE_PAGE_MAP_ADDRESS
     jmp enter_long_mode
 
-; es:edi must point to a 16KB PML4E buffer
+; es:edi must point to the pagemap
 enter_long_mode:
     ; disable IRQs (interrupt requests) TODO: why is this different from cli/sti?
     mov al, 0xFF
@@ -72,9 +72,9 @@ enter_long_mode:
     ; select the 64-bit code segment while jumping to 64-bit main
     jmp CODE_SEG:start64
 
-; es:edi must point to page-aligned 8KB buffer (for the PML4 & PDPT, where PDPT will point directly to our first 1GB)
+; es:edi must point to page-aligned 8KB buffer to hold the pagemap (for the PML4 & PDPT, where PDPT will point directly to our first 1GB)
 ; ss:esp must point to memory that can be used as a small stack
-; this creates an identity pagemap for the first 1GB of RAM
+; this creates an identity pagemap for the first 1GB of RAM using a single hugepage
 build_long_mode_1GB_identity_pagemap:
     ; zero-out the entire 8KB buffer
     push di ; backup DI (otherwise, clobbered by rep stosd)
@@ -158,7 +158,7 @@ start64:
     mov rax, 0x1F201F201F201F20       ; Set the value to set the screen to: Blue background, white foreground, blank spaces.
     rep stosq                         ; Clear the entire screen. 
 
-    ; setup a 1MB stack @ 2MB
+    ; setup a new stack @ KERNEL_STACK_ADDRESS
     mov eax, KERNEL_STACK_ADDRESS
     mov ebp, eax ; set stack base pointer
     mov esp, ebp ; set stack pointer
