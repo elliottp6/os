@@ -10,7 +10,7 @@
 #define PAGETABLE_BITS 9
 #define PAGETABLE_ENTRIES (1 << PAGETABLE_BITS)
 #define PAGEMAP_LEVELS 4
-#define PAGEMAP_MAX_MEMORY 0x10000000 // 256 MB
+#define PAGEMAP_MAX_MEMORY 0x40000000 // 1GB
 
 typedef struct pagetable {
     uint64_t entries[PAGETABLE_ENTRIES];
@@ -73,6 +73,11 @@ void paging_init_kernel_pagemap() {
     // TODO: populate the pagemap
 
     // TODO: switch the CR3 register to point to the pagemap
+
+    // TODO: flush the TLB
+    //cli
+	//	invlpg	addr
+	//	sti
 
     // return the # of bytes needed for the entire pagemap
     //return pagemap_size;
