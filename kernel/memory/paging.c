@@ -65,8 +65,7 @@ void paging_init_kernel_pagemap() {
     // print this data out to the user
     paging_print_pagemap_dimensions( num_pages, num_pagetables_per_level, pagemap_size );
 
-    // TODO: in start.asm, we must use hugepages, so we can access all memory in system by default
-    //       this will allow enough access to put this new pagemap where we would like
+    // the initial pagemap 
 
     // TODO: allocate the pagemap
 

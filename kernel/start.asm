@@ -2,14 +2,20 @@
 %define DATA_SEG 0x10
 %define PAGE_FLAG_PRESENT (1 << 0)
 %define PAGE_FLAG_WRITE (1 << 1)
-%define PAGE_FLAG_HUGE 0
-; (1 << 7)
-%define PAGE_SIZE 4096
-; 0x200000
 %define KERNEL_ADDRESS 0x100000
 %define KERNEL_STACK_ADDRESS 0x200000
 %define KERNEL_STACK_SIZE 4096
 %define LONG_MODE_PAGE_MAP_ADDRESS 0xA000
+
+; ENABLE THESE FOR 4096-size pages w/ 2MB of initial memory acccess:
+;%define PAGE_FLAG_HUGE 0
+;%define PAGE_SIZE 4096
+;%define PT_OFFSET 0x3000
+
+; OR: ENABLE THESE FOR 2MB-size pages w/ 1GB of initial memory access:
+%define PAGE_FLAG_HUGE (1 << 7)
+%define PAGE_SIZE 0x200000
+%define PT_OFFSET 0x2000
 
 global start32 ; tell linker where to find this entry point
 extern main ; allows start.asm to call into main.c
@@ -97,13 +103,14 @@ build_long_mode_page_map:
  
     ; write level 1 pagetable
     lea eax, [es:di + 0x3000] ; put address of PT into EAX
-    or eax, PAGE_FLAG_PRESENT | PAGE_FLAG_WRITE | PAGE_FLAG_HUGE
+    or eax, PAGE_FLAG_PRESENT | PAGE_FLAG_WRITE
     mov [es:di + 0x2000], eax ; store value of EAX into first PDE
 
     ; write level 0 pagetable
+    ; note that if we're using 2MB pages, then this will actually write the level 1 pagetable (and we won't need the full 16KB, just 12KB)
     push di ; save DI
-    lea di, [di + 0x3000] ;  point DI to the page table
-    mov eax, PAGE_FLAG_PRESENT | PAGE_FLAG_WRITE ; EAX starts pointing to memory address 0 w/ flags
+    lea di, [di + PT_OFFSET] ;  point DI to the PT_OFFSET
+    mov eax, PAGE_FLAG_PRESENT | PAGE_FLAG_WRITE | PAGE_FLAG_HUGE; EAX starts pointing to memory address 0 w/ flags
 .page_table_loop:
     mov [es:di], eax ; first page table entry points to memory address 0
     add eax, PAGE_SIZE ; next one points to PAGE_SIZE later physical address

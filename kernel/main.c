@@ -40,8 +40,9 @@ void main() {
     vga_text_print( string_int64_to_temp( (int64_t)*p ), 0x17 );
     vga_text_print( "\n", 0x17 );
 
-    // switch to much larger kernel pagemap
-    // TODO: might also want to enable write protection against the kernel's code
+    // switch to a customized kernel pagemap
+    // TODO: don't need to do this now, b/c start.asm now uses 2MB pages, giving us access to the full 1GB of space
+    // we could probably do things even more simply if we wanted to, actually, by using the 1GB hugepage, and then here we can get more granular
     paging_init_kernel_pagemap();
 
     // initialize the kernel heap
