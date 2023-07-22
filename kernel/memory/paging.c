@@ -76,7 +76,9 @@ void paging_init_kernel_pagemap() {
 
     // TODO: flush the TLB
     //cli
-	//	invlpg	addr
+    //static inline void __native_flush_tlb_single(unsigned long addr) {
+    //   asm volatile("invlpg (%0)" ::"r" (addr) : "memory");
+    //}
 	//	sti
 
     // return the # of bytes needed for the entire pagemap

@@ -1,11 +1,15 @@
 %define CODE_SEG 0x08
 %define DATA_SEG 0x10
-%define PAGE_PRESENT (1 << 0)
-%define PAGE_WRITE (1 << 1)
+%define PAGE_FLAG_PRESENT (1 << 0)
+%define PAGE_FLAG_WRITE (1 << 1)
+%define PAGE_FLAG_HUGE 0
+; (1 << 7)
+%define PAGE_SIZE 4096
+; 0x200000
 %define KERNEL_ADDRESS 0x100000
 %define KERNEL_STACK_ADDRESS 0x200000
 %define KERNEL_STACK_SIZE 4096
-%define LONG_MODE_PAGE_TABLE_ADDRESS 0xA000
+%define LONG_MODE_PAGE_MAP_ADDRESS 0xA000
 
 global start32 ; tell linker where to find this entry point
 extern main ; allows start.asm to call into main.c
@@ -26,11 +30,11 @@ start32:
     jc failed_to_support_long_mode
 
     ; build the long-mode page map
-    mov edi, LONG_MODE_PAGE_TABLE_ADDRESS ; edi argument tells 'enter_long_mode' where to put page data
-    call build_long_mode_2MB_page_table
+    mov edi, LONG_MODE_PAGE_MAP_ADDRESS ; edi argument tells 'enter_long_mode' where to put page data
+    call build_long_mode_page_map
 
     ; enter long mode
-    mov edi, LONG_MODE_PAGE_TABLE_ADDRESS
+    mov edi, LONG_MODE_PAGE_MAP_ADDRESS
     jmp enter_long_mode
 
 ; es:edi must point to a 16KB PML4E buffer
@@ -43,8 +47,9 @@ enter_long_mode:
     nop
     lidt [IDT] ; load a zero-length interrupt-descriptor-table, which means any NMI (non-maskable-interrupt) will cause a triple fault (a non-recoverable fault, which reboots the CPU, or in qemu it will dump w/ the instruction pointer @ instruction that caused the first exception.)
 
-    ; must enable PAE and PGE on CR4 before we can enter long mode
-    mov eax, 10100000b ; set PAE (physical address extension) and PGE (page global enable) bit [page table entries marked as global will be cached in the TLB across different address spaces]
+    ; must enable PGE, PAE and PSE (for 2MB pages) on CR4 before we can enter long mode
+    ; enable PGE (page global enable), PAE (physical address extension) and PSE (page size extension, on = 2MB huge pages)
+    mov eax, 10110000b
     mov cr4, eax
 
     ; CR3 register must point to the PML4 (page map level 4)
@@ -70,9 +75,8 @@ enter_long_mode:
 
 ; es:edi must point to page-aligned 16KB buffer (for the PML4, PDPT, PD and a PT)
 ; ss:esp must point to memory that can be used as a small stack
-; this creates a page map with a total system memory of 2MB
-; (i.e. a full page table pointing to physical memory, but with only a single 0 entry for the PML4, PDPT and PD tables)
-build_long_mode_2MB_page_table:
+; this creates an identity page map
+build_long_mode_page_map:
     ; zero-out the entire 16KB buffer
     push di ; backup DI (otherwise, clobbered by rep stosd)
     mov ecx, 0x1000 ; set ECX to 4096
@@ -81,31 +85,30 @@ build_long_mode_2MB_page_table:
     rep stosd ; repeat-while-equal: store contents of eax into [edi], inc/dec edi each time by 4 bytes each time (4096 loops = 16KB)
     pop di ; restore DI
     
-    ; write 1st entry of page map level 4 [PML4 9 bits (47-39) for 512 entries (PML4E) [512GB each]]
+    ; write level 3 pagetable
     lea eax, [es:di + 0x1000] ; put address of PDPT into EAX
-    or eax, PAGE_PRESENT | PAGE_WRITE ; page present & writable
+    or eax, PAGE_FLAG_PRESENT | PAGE_FLAG_WRITE ; page present & writable
     mov [es:di], eax ; store value of EAX into first PML4E
 
-    ; write 1st entry of page directory pointer table [PDPT 9 bits (bits 38-30) for 512 entries (PDPE) [1GB each]]
+    ; write level 2 pagetabel
     lea eax, [es:di + 0x2000] ; put address of PD into EAX
-    or eax, PAGE_PRESENT | PAGE_WRITE
+    or eax, PAGE_FLAG_PRESENT | PAGE_FLAG_WRITE
     mov [es:di + 0x1000], eax ; store value of EAX into first PDPT
-
-    ; write 1st entry of page directory [PD 9 bits (29-21) for 512 entries (PDE) [2MB each]]
+ 
+    ; write level 1 pagetable
     lea eax, [es:di + 0x3000] ; put address of PT into EAX
-    or eax, PAGE_PRESENT | PAGE_WRITE
+    or eax, PAGE_FLAG_PRESENT | PAGE_FLAG_WRITE | PAGE_FLAG_HUGE
     mov [es:di + 0x2000], eax ; store value of EAX into first PDE
 
-    ; write all entries of page table [PT 9 bits (20-12) for 512 entries (PE) [4K each]; leaving 12 bits (11-0) for 4096 byte pages]
-    ; this maps 1:1 virtual-to-physical memory from 0 to 2MB
+    ; write level 0 pagetable
     push di ; save DI
     lea di, [di + 0x3000] ;  point DI to the page table
-    mov eax, PAGE_PRESENT | PAGE_WRITE ; EAX starts pointing to memory address 0 w/ flags
+    mov eax, PAGE_FLAG_PRESENT | PAGE_FLAG_WRITE ; EAX starts pointing to memory address 0 w/ flags
 .page_table_loop:
     mov [es:di], eax ; first page table entry points to memory address 0
-    add eax, 0x1000 ; next one points 4096 bytes later
+    add eax, PAGE_SIZE ; next one points to PAGE_SIZE later physical address
     add di, 8 ; each page table entry is an 8 byte pointer
-    cmp eax, 0x200000 ; 2MB
+    cmp eax, PAGE_SIZE * 512 ; stop @ 512 pages
     jb .page_table_loop ; jump if eax is below 2MB
     pop di ; restore DI
     ret
