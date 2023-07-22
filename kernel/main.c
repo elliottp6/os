@@ -40,9 +40,9 @@ void main() {
     vga_text_print( string_int64_to_temp( (int64_t)*p ), 0x17 );
     vga_text_print( "\n", 0x17 );
 
-    // switch to much larger kernel page tables
+    // switch to much larger kernel pagemap
     // TODO: might also want to enable write protection against the kernel's code
-    paging_init_kernel_page_tables();
+    paging_init_kernel_pagemap();
 
     // initialize the kernel heap
     // kernel_heap_init();

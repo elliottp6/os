@@ -2,4 +2,4 @@
 
 #include <stddef.h>
 
-void paging_init_kernel_page_tables();
+void paging_init_kernel_pagemap();

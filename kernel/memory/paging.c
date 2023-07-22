@@ -1,39 +1,70 @@
 #include <stdint.h>
 #include "paging.h"
+#include "../text/string.h"
+#include "../text/vga_text.h"
 
 #define PAGE_FLAG_PRESENT 1
 #define PAGE_FLAG_WRITE 2
-#define PAGE_SIZE 4096
 #define PAGE_BITS 12
-#define PAGE_TABLE_BITS 9
-#define PAGE_TABLE_ENTRIES 512
-#define PAGE_TABLE_MASK 511
-#define PAGE_TABLE_MAX_MEMORY 0x10000000 // 256 MB
+#define PAGE_SIZE (1 << PAGE_BITS)
+#define PAGETABLE_BITS 9
+#define PAGETABLE_ENTRIES (1 << PAGETABLE_BITS)
+#define PAGEMAP_LEVELS 4
+#define PAGEMAP_MAX_MEMORY 0x10000000 // 256 MB
 
-typedef struct page_table {
-    uint64_t entries[PAGE_TABLE_ENTRIES];
-} page_table_t;
+typedef struct pagetable {
+    uint64_t entries[PAGETABLE_ENTRIES];
+} pagetable_t;
 
-static size_t shift_right_plus_remainder( size_t x, size_t shift ) {
-    size_t mask = (1 << shift) - 1;
-    return (x >> shift) | ((x & mask) > 0);
+static size_t shift_right_round_up( size_t x, size_t shift ) {
+    size_t mask = (1 << shift) - 1, remainder = x & mask;
+    return (x >> shift) | (remainder > 0);
 }
 
-void paging_init_kernel_page_tables() {
-    // calculate how many total pages we need for each page table level
-    //size_t kernel_pages = shift_right_plus_remainder( PAGE_TABLE_MAX_MEMORY, PAGE_BITS );
-    //size_t table0_length = shift_right_plus_remainder( kernel_pages, PAGE_TABLE_BITS ); // PT (page table)
+// note: *num_pagetables must point to a an array of size_t w/ length PAGEMAP_LEVELS
+static size_t get_pagemap_dimensions( size_t memory_size, size_t *num_pages, size_t *num_pagetables ) {
+    // calculate # of pages needed to map memory from 0 to PAGEMAP_MAX_MEMORY
+    *num_pages = shift_right_round_up( memory_size, PAGE_BITS );
 
-    /*
-    size_t kernel_pages = (PAGE_TABLE_MAX_MEMORY >> PAGE_BITS) + 
-           table0_entries = kernel_pages >> PAGE_TABLE_BITS,    
-           table1_entries = table0_entries >> PAGE_TABLE_BITS,  // PD (page directory)
-           table2_entries = table1_entries >> PAGE_TABLE_BITS,  // PDPT (page directory pointer table)
-           table3_entries = table2_entries >> PAGE_TABLE_BITS;  // PML4 (page map level 4)
-    */
-    // 
+    // calculate # of pagetables needed at each level in the pagemap hierarchy
+    size_t pagemap_size = 0;
+    for( size_t i = 0; i < PAGEMAP_LEVELS; i++ ) {
+        num_pagetables[i] = shift_right_round_up( i > 0 ? num_pagetables[i - 1] : *num_pages, PAGETABLE_BITS );
+        pagemap_size+= num_pagetables[i] * sizeof( pagetable_t );
+    }
 
-    // 
+    // return # of bytes required for the entire pagemap
+    return pagemap_size;
+}
+
+static void paging_print_pagemap_dimensions( size_t num_pages, size_t *num_pagetables, size_t pagemap_size ) {
+    // print out dimensions
+    vga_text_print( "pagemap dimensions for memory_size ", 0x17 );
+    vga_text_print( string_int64_to_temp( (int64_t)PAGEMAP_MAX_MEMORY ), 0x17 );
+    vga_text_print( "\n  # pages: ", 0x17 );
+    vga_text_print( string_int64_to_temp( (int64_t)num_pages ), 0x17 );
+    for( size_t i = 0; i < PAGEMAP_LEVELS; i++ ) {
+        vga_text_print( "\n  # tables for level ", 0x17 );
+        vga_text_print( string_int64_to_temp( (int64_t)i ), 0x17 );
+        vga_text_print( ": ", 0x17 );
+        vga_text_print( string_int64_to_temp( (int64_t)num_pagetables[i] ), 0x17 ); 
+    }
+    vga_text_print( "\n  pagemap size: ", 0x17 );
+    vga_text_print( string_int64_to_temp( (int64_t)pagemap_size ), 0x17 );
+    vga_text_print( "\n", 0x17 );
+}
+
+void paging_init_kernel_pagemap() {
+    // get pagemap dimensions
+    size_t num_pages,
+           num_pagetables[PAGEMAP_LEVELS],
+           pagemap_size = get_pagemap_dimensions( PAGEMAP_MAX_MEMORY, &num_pages, num_pagetables );
+
+    // let user know
+    paging_print_pagemap_dimensions( num_pages, num_pagetables, pagemap_size );
+
+    // return the # of bytes needed for the entire pagemap
+    //return pagemap_size;
 
     /*
     ; es:edi must point to page-aligned 16KB buffer (for the PML4, PDPT, PD and a PT)
