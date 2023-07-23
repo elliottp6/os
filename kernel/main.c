@@ -25,6 +25,14 @@ static void divide_by_zero() {
     );
 }
 
+static void interrupts_enable() {
+    asm ( "sti\n" );
+}
+
+static void interrupts_disable() {
+    asm ( "cli\n" );
+}
+
 void main() {
     // clear background to blue, and display welcome message
     vga_text_clear( 0x17 );
