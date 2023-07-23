@@ -50,7 +50,7 @@ void freelist_heap_init( void *heap_start, size_t heap_size ) {
 
     // insert first free block
     free_block_t *free_block = (free_block_t*)(heap_start + sizeof( heap_t ) );
-    circular_list_insert_after( &heap->root.node, (node_t*)free_block );
+    circular_list_insert_after( &heap->root.node, &free_block->node );
     free_block->size = heap_size - sizeof( heap_t );
 
     #ifdef TRACE
@@ -90,7 +90,7 @@ void *freelist_heap_alloc( void *heap_start, size_t object_size ) {
 
     // see if we can find a free block that's big enough
     heap_t *heap = (heap_t*)heap_start;
-    free_block_t *free_block = (free_block_t*)circular_list_find( (node_t*)&heap->root, free_block_is_big_enough, &min_block_size );
+    free_block_t *free_block = (free_block_t*)circular_list_find( &heap->root.node, free_block_is_big_enough, &min_block_size );
     if( NULL == free_block ) {
         #ifdef PANIC_ON_OUT_OF_MEMORY
         panic( "freelist_heap_alloc: no free blocks in heap\n" );
@@ -117,10 +117,10 @@ void *freelist_heap_alloc( void *heap_start, size_t object_size ) {
         new_free_block->size = free_space_size;
 
         // replace block with the new free block
-        circular_list_replace( (node_t*)free_block, (node_t*)new_free_block );
+        circular_list_replace( &free_block->node, &new_free_block->node );
     } else {
         // remove block from the free list
-        circular_list_remove( (node_t*)free_block );
+        circular_list_remove( &free_block->node );
     }
 
     // convert free_block into used_block
@@ -140,7 +140,7 @@ static void try_merge_left( free_block_t *left, free_block_t *right ) {
 
     // merge right block into left
     left->size+= right->size;
-    circular_list_remove( (node_t*)right );
+    circular_list_remove( &right->node );
 }
 
 void freelist_heap_free( void *heap_start, void* ptr ) {
@@ -158,7 +158,7 @@ void freelist_heap_free( void *heap_start, void* ptr ) {
     node_t *root = &heap->root.node;
     node_t *node = root->next;
     while( node != root && (uintptr_t)node < (uintptr_t)free_block ) node = node->next;
-    circular_list_insert_before( node, (node_t*)free_block );
+    circular_list_insert_before( node, &free_block->node );
 
     // defragment heap by trying to merge this block with its right and left blocks
     try_merge_left( free_block, (free_block_t*)free_block->node.next );

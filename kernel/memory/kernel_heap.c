@@ -82,10 +82,18 @@ static void kernel_heap_test() {
     if( (int64_t)obj1 != (int64_t)(0x200000 + 88) ) panic( "kernel_heap_init: big allocated object must be 88 bytes after the heap's header" );
 
     // this means we still have 2 free blocks
-    // TODO: finish testing
+    free_block_count = freelist_heap_free_block_count( (void*)KERNEL_HEAP_START );
+    if( 2 != free_block_count ) {
+        vga_text_print( "kernel_heap_init: after freeing 1st obj yet-yet again, free block count is ", 0x17 );
+        vga_text_print( string_int64_to_temp( (int64_t)free_block_count ), 0x17 );
+        vga_text_print( "\n", 0x17 );
+        panic( "kernel_heap_init: expect free_block_count to be 2" );
+    }
 
-    // free both objects
+    // free first object
     kernel_heap_free( obj1 );
+
+    // free second object
     kernel_heap_free( obj2 );
 
     // now we should be back to a single contiguous free block
