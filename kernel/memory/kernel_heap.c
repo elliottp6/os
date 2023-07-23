@@ -5,18 +5,22 @@
 #include "../text/vga_text.h" // for error messages
 #include "../main.h" // for panic
 
+static void print_heap() {
+    freelist_heap_print( (void*)KERNEL_HEAP_START );
+}
+
 static size_t free_block_count() {
     return freelist_heap_free_block_count( (void*)KERNEL_HEAP_START );
 }
 
 static void test() {
-    // run a self-test
     // heap should start w/ just a single free block
     size_t count = free_block_count();
     if( 1 != count ) {
         vga_text_print( "kernel_heap_init: free block count starts @ ", 0x17 );
-        vga_text_print( string_int64_to_temp( (int64_t)count ), 0x17 );
+        vga_text_print( string_from_int64( (int64_t)count ), 0x17 );
         vga_text_print( "\n", 0x17 );
+        print_heap();
         panic( "kernel_heap_init: expect initial free_block_count to be 1" );
     }
 
@@ -28,8 +32,9 @@ static void test() {
     count = free_block_count();
     if( 1 != count ) {
         vga_text_print( "kernel_heap_init: after 1st allocation, free block count is ", 0x17 );
-        vga_text_print( string_int64_to_temp( (int64_t)count ), 0x17 );
+        vga_text_print( string_from_int64( (int64_t)count ), 0x17 );
         vga_text_print( "\n", 0x17 );
+        print_heap();
         panic( "kernel_heap_init: expect free_block_count to be 1" );
     }
 
@@ -41,8 +46,9 @@ static void test() {
     count = free_block_count();
     if( 1 != count ) {
         vga_text_print( "kernel_heap_init: after 2nd allocation, free block count is ", 0x17 );
-        vga_text_print( string_int64_to_temp( (int64_t)count ), 0x17 );
+        vga_text_print( string_from_int64( (int64_t)count ), 0x17 );
         vga_text_print( "\n", 0x17 );
+        print_heap();
         panic( "kernel_heap_init: expect free_block_count to be 1" );
     }
 
@@ -53,8 +59,9 @@ static void test() {
     count = free_block_count();
     if( 2 != count ) {
         vga_text_print( "kernel_heap_init: after freeing 1st obj, free block count is ", 0x17 );
-        vga_text_print( string_int64_to_temp( (int64_t)count ), 0x17 );
+        vga_text_print( string_from_int64( (int64_t)count ), 0x17 );
         vga_text_print( "\n", 0x17 );
+        print_heap();
         panic( "kernel_heap_init: expect free_block_count to be 2" );
     }
 
@@ -66,8 +73,9 @@ static void test() {
     count = free_block_count();
     if( 1 != count ) {
         vga_text_print( "kernel_heap_init: after allocating 1st obj again, free block count is ", 0x17 );
-        vga_text_print( string_int64_to_temp( (int64_t)count ), 0x17 );
+        vga_text_print( string_from_int64( (int64_t)count ), 0x17 );
         vga_text_print( "\n", 0x17 );
+        print_heap();
         panic( "kernel_heap_init: expect free_block_count to be 1" );
     }
 
@@ -76,8 +84,9 @@ static void test() {
     count = free_block_count();
     if( 2 != count ) {
         vga_text_print( "kernel_heap_init: after freeing 1st obj yet again, free block count is ", 0x17 );
-        vga_text_print( string_int64_to_temp( (int64_t)count ), 0x17 );
+        vga_text_print( string_from_int64( (int64_t)count ), 0x17 );
         vga_text_print( "\n", 0x17 );
+        print_heap();
         panic( "kernel_heap_init: expect free_block_count to be 2" );
     }
 
@@ -89,8 +98,9 @@ static void test() {
     count = free_block_count();
     if( 2 != count ) {
         vga_text_print( "kernel_heap_init: after freeing 1st obj yet-yet again, free block count is ", 0x17 );
-        vga_text_print( string_int64_to_temp( (int64_t)count ), 0x17 );
+        vga_text_print( string_from_int64( (int64_t)count ), 0x17 );
         vga_text_print( "\n", 0x17 );
+        print_heap();
         panic( "kernel_heap_init: expect free_block_count to be 2" );
     }
 
@@ -99,8 +109,9 @@ static void test() {
     count = free_block_count();
     if( 2 != count ) {
         vga_text_print( "kernel_heap_init: after freeing 1st obj for the last time, free block count is ", 0x17 );
-        vga_text_print( string_int64_to_temp( (int64_t)count ), 0x17 );
+        vga_text_print( string_from_int64( (int64_t)count ), 0x17 );
         vga_text_print( "\n", 0x17 );
+        print_heap();
         panic( "kernel_heap_init: expect free_block_count to be 2" );
     }
 
@@ -111,8 +122,9 @@ static void test() {
     count = free_block_count();
     if( 1 != count ) {
         vga_text_print( "kernel_heap_init: after freeing objects, free block count is now ", 0x17 );
-        vga_text_print( string_int64_to_temp( (int64_t)count ), 0x17 );
+        vga_text_print( string_from_int64( (int64_t)count ), 0x17 );
         vga_text_print( "\n", 0x17 );
+        print_heap();
         panic( "kernel_heap_init: after freeing all blocks, expect free_block_count to be 1" );
     }
 }

@@ -29,20 +29,10 @@ void main() {
     vga_text_clear( 0x17 );
     vga_text_print( "Welcome to the 64-bit kernel!\n", 0x17 );
 
-    // TODO: convert this into a legit test
-    // test 'string_int64_to_temp'
-    vga_text_print( "testing string_int64_to_temp for -1054: ", 0x17 );
-    vga_text_print( string_int64_to_temp( -1054 ), 0x17 );
-    vga_text_print( "\n", 0x17 );
+    // run string tests
+    string_run_tests();
 
-    // TODO: convert this into a legit test
-    // test accessing last byte of memory (1GB)
-    char *p = (char*)0x40000000 - 1;
-    vga_text_print( "reading last byte of memory (address 1GB - 1): ", 0x17 );
-    vga_text_print( string_int64_to_temp( (int64_t)*p ), 0x17 );
-    vga_text_print( "\n", 0x17 );
-
-    // initialize the kernel heap and test it
+    // initialize the kernel heap & run heap tests
     kernel_heap_init();
 
     // TODO: do kernel main stuff

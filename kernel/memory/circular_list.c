@@ -48,7 +48,7 @@ node_t *circular_list_pop_prior( node_t *node ) {
     return prior;
 }
 
-node_t *circular_list_find( node_t *start, bool (*match)(node_t* node, void *closure), void *closure ) {
+node_t *circular_list_find( node_t *start, bool (*match)(node_t *node, void *closure), void *closure ) {
     node_t *node = start;
     do {
         if( match( node, closure ) ) return node;
@@ -56,8 +56,14 @@ node_t *circular_list_find( node_t *start, bool (*match)(node_t* node, void *clo
     return NULL;
 }
 
-size_t circular_list_length( circular_list_node_t *start ) {
+size_t circular_list_length( node_t *start ) {
     size_t count = 1;
     for( node_t *node = start; (node = node->next) != start; count++ );
     return count;
+}
+
+void circular_list_foreach( node_t *start, void (*on_node)(node_t *node, void *closure), void *closure ) {
+    for( node_t *node = start; (node = node->next) != start; ) {
+        on_node( node, closure );
+    }
 }

@@ -16,3 +16,4 @@ circular_list_node_t *circular_list_pop_next( circular_list_node_t *node );
 circular_list_node_t *circular_list_pop_prior( circular_list_node_t *node );
 circular_list_node_t *circular_list_find( circular_list_node_t *start, bool (*match)(circular_list_node_t* node, void *closure), void *closure );
 size_t circular_list_length( circular_list_node_t *start );
+void circular_list_foreach( circular_list_node_t *start, void (*on_node)(circular_list_node_t *node, void *closure), void *closure );

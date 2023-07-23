@@ -52,11 +52,11 @@ void freelist_heap_init( void *heap_start, size_t heap_size ) {
 
     #ifdef TRACE
     vga_text_print( "freelist_heap_init: free_block @ ", 0x17 );
-    vga_text_print( string_int64_to_temp( *(int64_t*)free_block ), 0x17 );
+    vga_text_print( string_from_int64( *(int64_t*)free_block ), 0x17 );
     vga_text_print( " with size ", 0x17 );
-    vga_text_print( string_int64_to_temp( (int64_t)free_block->size ), 0x17 );
+    vga_text_print( string_from_int64( (int64_t)free_block->size ), 0x17 );
     vga_text_print( " root->next ", 0x17 );
-    vga_text_print( string_int64_to_temp( (int64_t)(heap->root.node.next) ), 0x17 );
+    vga_text_print( string_from_int64( (int64_t)(heap->root.node.next) ), 0x17 );
     vga_text_print( "\n", 0x17 );
     #endif
 }
@@ -66,11 +66,11 @@ static bool free_block_is_big_enough( node_t *free_block_node, void *min_free_bl
 
     #ifdef TRACE
     vga_text_print( "free_block_is_big_enough: checking free block @ ", 0x17 );
-    vga_text_print( string_int64_to_temp( (int64_t)free_block ), 0x17 );
+    vga_text_print( string_from_int64( (int64_t)free_block ), 0x17 );
     vga_text_print( " of size ", 0x17 );
-    vga_text_print( string_int64_to_temp( (int64_t)free_block->size ), 0x17 );
+    vga_text_print( string_from_int64( (int64_t)free_block->size ), 0x17 );
     vga_text_print( " vs min of ", 0x17 );
-    vga_text_print( string_int64_to_temp( *(int64_t*)min_free_block_size ), 0x17 );
+    vga_text_print( string_from_int64( *(int64_t*)min_free_block_size ), 0x17 );
     vga_text_print( "\n", 0x17 );
     #endif
 
@@ -90,7 +90,7 @@ void *freelist_heap_alloc( void *heap_start, size_t object_size ) {
     free_block_t *free_block = (free_block_t*)circular_list_find( &heap->root.node, free_block_is_big_enough, &min_block_size );
     if( NULL == free_block ) {
         #ifdef PANIC_ON_OUT_OF_MEMORY
-        panic( "freelist_heap_alloc: no free blocks in heap\n" );
+        panic( "freelist_heap_alloc: no sufficiently-large free blocks in heap\n" );
         #endif
         return NULL;
     }
@@ -98,7 +98,7 @@ void *freelist_heap_alloc( void *heap_start, size_t object_size ) {
     #ifdef TRACE
     else {
         vga_text_print( "freelist_heap_alloc: found free_block @ ", 0x17 );
-        vga_text_print( string_int64_to_temp( (int64_t)free_block ), 0x17 );
+        vga_text_print( string_from_int64( (int64_t)free_block ), 0x17 );
         vga_text_print( "\n", 0x17 );
     }
     #endif
@@ -129,11 +129,8 @@ void *freelist_heap_alloc( void *heap_start, size_t object_size ) {
 }
 
 static void try_merge_left( free_block_t *left, free_block_t *right ) {
-    // cannot merge with root block
-    if( 0 == left->size || 0 == right->size ) return;
-
-    // right must touch left to be mergeable
-    if( (void*)right != (void*)left + left->size ) return;
+    // blocks must be different and touching to be mergeable
+    if( left == right || (void*)left + left->size != (void*)right ) return;
 
     // merge right block into left
     left->size+= right->size;
@@ -167,6 +164,14 @@ size_t freelist_heap_free_block_count( void *heap_start ) {
     return circular_list_length( &heap->root.node ) - 1;
 }
 
+static void print_free_block( node_t *node, void *closure ) {
+    free_block_t *block = (free_block_t*)node;
+    vga_text_print( "[", 0x17 );
+    vga_text_print( string_from_int64( block->size ), 0x17 );
+    vga_text_print( "]", 0x17 );
+}
+
 void freelist_heap_print( void *heap_start ) {
-    // TODO: implement for debugging purposes
+    heap_t *heap = (heap_t*)heap_start;
+    circular_list_foreach( &heap->root.node, print_free_block, NULL );
 }
