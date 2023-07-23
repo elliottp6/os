@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stddef.h>
 
 #define KERNEL_HEAP_START 0x200000 // 2 MB (i.e. the heap starts right at the top of the stack)

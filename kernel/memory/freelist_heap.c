@@ -4,7 +4,7 @@
 #include "freelist_heap.h"
 #include "../main.h" // for panic
 
-#define TRACE
+//#define TRACE
 #define PANIC_ON_OUT_OF_MEMORY
 
 #ifdef TRACE
@@ -43,14 +43,14 @@ void freelist_heap_init( void *heap_start, size_t heap_size ) {
     heap_t *heap = (heap_t*)heap_start;
     heap->size = heap_size;
     heap->root.size = 0;
-    circular_list_init( (node_t*)&heap->root );
+    circular_list_init( &heap->root.node );
 
     // check if we have enough space for 1st free block
     if( heap_size < sizeof( heap_t ) + sizeof( free_block_t ) ) return;
 
     // insert first free block
     free_block_t *free_block = (free_block_t*)(heap_start + sizeof( heap_t ) );
-    circular_list_insert_after( (node_t*)&heap->root, (node_t*)free_block );
+    circular_list_insert_after( &heap->root.node, (node_t*)free_block );
     free_block->size = heap_size - sizeof( heap_t );
 
     #ifdef TRACE
@@ -163,4 +163,9 @@ void freelist_heap_free( void *heap_start, void* ptr ) {
     // defragment heap by trying to merge this block with its right and left blocks
     try_merge_left( free_block, (free_block_t*)free_block->node.next );
     try_merge_left( (free_block_t*)free_block->node.prior, free_block );
+}
+
+size_t freelist_heap_free_block_count( void *heap_start ) {
+    heap_t *heap = (heap_t*)heap_start;
+    return circular_list_length( &heap->root.node ) - 1;
 }

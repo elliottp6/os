@@ -1,4 +1,3 @@
-#include <stddef.h>
 #include "circular_list.h"
 
 typedef circular_list_node_t node_t;
@@ -55,4 +54,10 @@ node_t *circular_list_find( node_t *start, bool (*match)(node_t* node, void *clo
         if( match( node, closure ) ) return node;
     } while( (node = node->next) != start );
     return NULL;
+}
+
+size_t circular_list_length( circular_list_node_t *start ) {
+    size_t count = 1;
+    for( node_t *node = start; (node = node->next) != start; count++ );
+    return count;
 }
