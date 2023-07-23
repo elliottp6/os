@@ -6,6 +6,7 @@
 #include "text/vga_text.h"
 #include "memory/paging.h"
 #include "memory/kernel_heap.h"
+#include "interrupt/interrupt_table.h"
 
 void panic( const char* details ) {
     // print messages
@@ -32,12 +33,11 @@ void main() {
     // run string tests
     string_run_tests();
 
-    // initialize the kernel heap & run heap tests
+    // initialize the kernel heap (this also runs heap tests)
     kernel_heap_init();
 
-    // TODO: do kernel main stuff
-    // divide_by_zero();
-    // panic( "attempted to divide by 0\n" );
+    // initialize the interrupt table
+    interrupt_table_init();
 
     // machine is now ready for power off
     vga_text_print( "Exiting kernel & suspending CPU. Machine is now ready to be powered off.\n", 0x06 );
