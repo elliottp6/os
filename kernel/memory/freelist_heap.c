@@ -2,15 +2,12 @@
 #include <stdint.h>
 #include "circular_list.h"
 #include "freelist_heap.h"
+#include "../text/string.h" // print freelist_heap_print
+#include "../text/vga_text.h" // "
 #include "../main.h" // for panic
 
 //#define TRACE
 #define PANIC_ON_OUT_OF_MEMORY
-
-#ifdef TRACE
-#include "../text/string.h"
-#include "../text/vga_text.h"
-#endif
 
 typedef circular_list_node_t node_t;
 
@@ -136,7 +133,7 @@ static void try_merge_left( free_block_t *left, free_block_t *right ) {
     if( 0 == left->size || 0 == right->size ) return;
 
     // right must touch left to be mergeable
-    if( right != left + left->size ) return;
+    if( (void*)right != (void*)left + left->size ) return;
 
     // merge right block into left
     left->size+= right->size;
@@ -157,15 +154,19 @@ void freelist_heap_free( void *heap_start, void* ptr ) {
     heap_t *heap = (heap_t*)heap_start;
     node_t *root = &heap->root.node;
     node_t *node = root->next;
-    while( node != root && (uintptr_t)node < (uintptr_t)free_block ) node = node->next;
+    while( node != root && (void*)node < (void*)free_block ) node = node->next;
     circular_list_insert_before( node, &free_block->node );
 
     // defragment heap by trying to merge this block with its right and left blocks
-    try_merge_left( free_block, (free_block_t*)free_block->node.next );
+    try_merge_left( free_block, (free_block_t*)node );
     try_merge_left( (free_block_t*)free_block->node.prior, free_block );
 }
 
 size_t freelist_heap_free_block_count( void *heap_start ) {
     heap_t *heap = (heap_t*)heap_start;
     return circular_list_length( &heap->root.node ) - 1;
+}
+
+void freelist_heap_print( void *heap_start ) {
+    // TODO: implement for debugging purposes
 }
