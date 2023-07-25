@@ -3,6 +3,7 @@
 #include "interrupt_table.h"
 
 #define NUM_INTERRUPT_TABLE_ENTRIES 256 // x86_64 always has 256 of these
+#define KERNEL_CODE_SELECTOR 0x08 // defined in boot.asm
 
 typedef struct interrupt_table_descriptor {
     uint16_t interrupt_table_size_minus_1;
@@ -10,12 +11,12 @@ typedef struct interrupt_table_descriptor {
 } __attribute__((packed)) interrupt_table_descriptor_t;
 
 typedef struct interrupt_table_entry { // aka interrupt descriptor. struct fields definitions from https://wiki.osdev.org/Interrupt_Descriptor_Table
-    uint16_t offset_bits_0_15; // offset is address of ISR or interrupt service routine
+    uint16_t isr_address_bit0_15; // address of interrupt service routine
     uint16_t code_segment_selector; // for GDT/LDT
     uint8_t stack_table_offset; // 3 bits
     uint8_t type_attribute_flags;
-    uint16_t offset_bits_16_31;
-    uint32_t offset_bits_32_63;
+    uint16_t isr_address_bit16_31;
+    uint32_t isr_address_bit32_63;
     uint32_t reserved_leave_as_0;
 } interrupt_table_entry_t;
 
@@ -61,6 +62,27 @@ static void load_interrupt_table( interrupt_table_descriptor_t *descriptor ) {
     );
 }
 
+static void interrupt_table_set( size_t i, void *interrupt_service_routine ) {
+    // get function addrss 
+    uint64_t isr_address = (uint64_t)interrupt_service_routine;
+    interrupt_table_entry_t *entry = &interrupt_table.entries[i];    
+
+    // set isr address
+    entry->isr_address_bit0_15 = (uint16_t)isr_address;
+    entry->isr_address_bit16_31 = (uint16_t)(isr_address >> 16);
+    entry->isr_address_bit32_63 = (uint32_t)(isr_address >> 32);
+
+    // isr executes using the kernel code segment selector
+    entry->code_segment_selector = KERNEL_CODE_SELECTOR;
+
+    // bits: Present = 1, DPL (descriptor privilege level) = 11 (ring 3), storage segment = 0 (must be 0 for interrupt & trap gates), gate type = 11 (3 = interrupt gate), reserved = 0
+    entry->type_attribute_flags = 0xEE;
+}
+
+static void interrupt_handler_divide_by_zero() {
+    // TODO: implement me!
+}
+
 void interrupt_table_init() {
     // initialize interrupt_table_descriptor
     interrupt_table_descriptor.interrupt_table_size_minus_1 = sizeof( interrupt_table_t ) - 1;
@@ -69,7 +91,8 @@ void interrupt_table_init() {
     // clear interrupt table (we now it's evenly divisible by sizeof( uint64_t ), so we can clear the buffer in 64-bit chunks)
     buffer_clear_qwords( (uint64_t*)&interrupt_table, sizeof( interrupt_table_t ) / sizeof( uint64_t ) );
 
-    // TODO
+    // ok, let's define a handler for "divide by zero", so we can test our table
+
 
     // load it
     // TODO: load_interrupt_table( &interrupt_table_descriptor );
