@@ -30,6 +30,7 @@ typedef struct interrupt_table {
 interrupt_table_descriptor_t interrupt_table_descriptor;
 interrupt_table_t interrupt_table; // aka IDT (interrupt descriptor table)
 
+// this is the frame that the CPU pushes to the stack before calling the interrupt
 typedef struct interrupt_frame {
     uint64_t ip;
     uint64_t cs;
@@ -39,7 +40,8 @@ typedef struct interrupt_frame {
 } interrupt_frame_t;
 
 /*
-// TODO: check if this is correct
+// this is a larger frame, after we push our extra regs to the stack
+// TODO: this needs to sync up with what our ISR EPILOGUE/PROLOGUE actually does
 typedef struct interrupt_frame {
     uint64_t rdi; // registers saved by CPU
     uint64_t rsi;
