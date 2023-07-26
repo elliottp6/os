@@ -30,6 +30,7 @@ typedef struct interrupt_table {
 interrupt_table_descriptor_t interrupt_table_descriptor;
 interrupt_table_t interrupt_table; // aka IDT (interrupt descriptor table)
 
+/*
 // this is the frame that the CPU pushes to the stack before calling the interrupt
 typedef struct interrupt_frame {
     uint64_t ip;
@@ -38,6 +39,7 @@ typedef struct interrupt_frame {
     uint64_t sp;
     uint64_t ss;
 } interrupt_frame_t;
+*/
 
 /*
 // this is a larger frame, after we push our extra regs to the stack
@@ -93,68 +95,64 @@ static void interrupt_table_set( size_t i, void *interrupt_service_routine ) {
     entry->type_attribute_flags = 0xEE;
 }
 
-// saves registers prior to ISR body
-#define INTERRUPT_SERVICE_ROUTINE_PROLOGUE asm("\
-    pushq   %rax        \n\t\
-    movq    %es, %rax   \n\t\
-    pushq   %rax        \n\t\
-    movq    %ds, %rax   \n\t\
-    pushq   %rax        \n\t\
-    pushq   %rbx        \n\t\
-    pushq   %rcx        \n\t\
-    pushq   %rdx        \n\t\
-    pushq   %rbp        \n\t\
-    pushq   %rdi        \n\t\
-    pushq   %rsi        \n\t\
-    pushq   %r8         \n\t\
-    pushq   %r9         \n\t\
-    pushq   %r10        \n\t\
-    pushq   %r11        \n\t\
-    pushq   %r12        \n\t\
-    pushq   %r13        \n\t\
-    pushq   %r14        \n\t\
-    pushq   %r15        \n\t\
-    movq    $0x10, %rdi \n\t\
-    movq    %rdi, %es   \n\t\
-    movq    %rdi, %ds   \n\t\
-");
+#define WRAP_INTERRUPT_HANDLER( c_function ) \
+    __attribute__((naked)) static void c_function##_wrapped() { \
+        asm("\
+            pushq   %rax            \n\t\
+            movq    %es, %rax       \n\t\
+            pushq   %rax            \n\t\
+            movq    %ds, %rax       \n\t\
+            pushq   %rax            \n\t\
+            pushq   %rbx            \n\t\
+            pushq   %rcx            \n\t\
+            pushq   %rdx            \n\t\
+            pushq   %rbp            \n\t\
+            pushq   %rdi            \n\t\
+            pushq   %rsi            \n\t\
+            pushq   %r8             \n\t\
+            pushq   %r9             \n\t\
+            pushq   %r10            \n\t\
+            pushq   %r11            \n\t\
+            pushq   %r12            \n\t\
+            pushq   %r13            \n\t\
+            pushq   %r14            \n\t\
+            pushq   %r15            \n\t\
+            movq    $0x10, %rdi     \n\t\
+            movq    %rdi, %es       \n\t\
+            movq    %rdi, %ds       \n\t\
+            call    "#c_function"   \n\t\
+            popq    %r15            \n\t\
+            popq    %r14            \n\t\
+            popq    %r13            \n\t\
+            popq    %r12            \n\t\
+            popq    %r11            \n\t\
+            popq    %r10            \n\t\
+            popq    %r9             \n\t\
+            popq    %r8             \n\t\
+            popq    %rsi            \n\t\
+            popq    %rdi            \n\t\
+            popq    %rbp            \n\t\
+            popq    %rdx            \n\t\
+            popq    %rcx            \n\t\
+            popq    %rbx            \n\t\
+            popq    %rax            \n\t\
+            movq    %rax, %ds       \n\t\
+            popq    %rax            \n\t\
+            movq    %rax, %es       \n\t\
+            popq    %rax            \n\t\
+            leave                   \n\t\
+            iretq                   \n\t\
+        "); \
+    }
 
-// restored registers after ISR body and returns using IRETQ
-#define INTERRUPT_SERVICE_ROUTINE_EPILOGUE asm("\
-    popq    %r15        \n\t\
-    popq    %r14        \n\t\
-    popq    %r13        \n\t\
-    popq    %r12        \n\t\
-    popq    %r11        \n\t\
-    popq    %r10        \n\t\
-    popq    %r9         \n\t\
-    popq    %r8         \n\t\
-    popq    %rsi        \n\t\
-    popq    %rdi        \n\t\
-    popq    %rbp        \n\t\
-    popq    %rdx        \n\t\
-    popq    %rcx        \n\t\
-    popq    %rbx        \n\t\
-    popq    %rax        \n\t\
-    movq    %rax, %ds   \n\t\
-    popq    %rax        \n\t\
-    movq    %rax, %es   \n\t\
-    popq    %rax        \n\t\
-    leave               \n\t\
-    iretq               \n\t\
-");
-
-__attribute__((naked)) static void naked_handle_divide_by_zero() {
-    INTERRUPT_SERVICE_ROUTINE_PROLOGUE
-    asm( "call handle_divide_by_zero \n\t" );
-    INTERRUPT_SERVICE_ROUTINE_EPILOGUE
-}
-
+// TODO: we need a way to tell the CPU that we handled the interrupt
 static void handle_divide_by_zero() {
     //vga_text_print( "divided by zero\n", 0x17 );
     panic( "divided by zero\n" );
     // TODO: if we don't panic, we must somehow tell system we handled this interrupt
 }
+
+WRAP_INTERRUPT_HANDLER( handle_divide_by_zero );
 
 static void divide_by_zero() {
     asm( "\
@@ -173,7 +171,7 @@ void interrupt_table_init() {
     buffer_clear_qwords( (uint64_t*)&interrupt_table, sizeof( interrupt_table_t ) / sizeof( uint64_t ) );
 
     // wire up 'naked_handle_divide_by_zero' the the 0th interrupt
-    interrupt_table_set( 0, naked_handle_divide_by_zero );
+    interrupt_table_set( 0, handle_divide_by_zero_wrapped );
 
     // load the interrupt table
     load_interrupt_table( &interrupt_table_descriptor );
