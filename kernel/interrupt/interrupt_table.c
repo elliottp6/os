@@ -30,6 +30,15 @@ typedef struct interrupt_table {
 interrupt_table_descriptor_t interrupt_table_descriptor;
 interrupt_table_t interrupt_table; // aka IDT (interrupt descriptor table)
 
+typedef struct interrupt_frame {
+    uint64_t ip;
+    uint64_t cs;
+    uint64_t flags;
+    uint64_t sp;
+    uint64_t ss;
+} interrupt_frame_t;
+
+/*
 // TODO: check if this is correct
 typedef struct interrupt_frame {
     uint64_t rdi; // registers saved by CPU
@@ -55,6 +64,7 @@ typedef struct interrupt_frame {
     uint64_t rsp; // stack pointer
     uint64_t ss; // stack segment
 } interrupt_frame_t;
+*/
 
 static void load_interrupt_table( interrupt_table_descriptor_t *descriptor ) {
     asm (
@@ -81,22 +91,65 @@ static void interrupt_table_set( size_t i, void *interrupt_service_routine ) {
     entry->type_attribute_flags = 0xEE;
 }
 
-// ISR for divide-by-zero
-// note: this is adapted from 32-bit code, is needs more work
-/*
-asm (
-    "pushad\n" // push general purpose regs
-    "push rsp\n" // save stack pointer
-    "push dword %1\n" // 1st argument
-    "call handle_divide_by_zero\n" // call C interrupt handler
-    "add rsp, 8\n" // pop rsp and 1st argument
-    "popad\n" // pop general purpose regs
-    "iret\n" // return from ISR
-);*/
+// saves registers prior to ISR body
+#define INTERRUPT_SERVICE_ROUTINE_PROLOGUE asm("\
+    pushq   %rax\n\t\
+    movq    %es, %rax\n\t\
+    pushq   %rax\n\t\
+    movq    %ds, %rax\n\t\
+    pushq   %rax\n\t\
+    pushq   %rbx\n\t\
+    pushq   %rcx\n\t\
+    pushq   %rdx\n\t\
+    pushq   %rbp\n\t\
+    pushq   %rdi\n\t\
+    pushq   %rsi\n\t\
+    pushq   %r8\n\t\
+    pushq   %r9\n\t\
+    pushq   %r10\n\t\
+    pushq   %r11\n\t\
+    pushq   %r12\n\t\
+    pushq   %r13\n\t\
+    pushq   %r14\n\t\
+    pushq   %r15\n\t\
+    movq    $0x10, %rdi\n\t\
+    movq    %rdi, %es\n\t\
+    movq    %rdi, %ds\n\t\
+");
 
-static void handle_divide_by_zero() {
-    panic( "division by zero!\n" );
+// restored registers after ISR body and returns using IRETQ
+#define INTERRUPT_SERVICE_ROUTINE_EPILOGUE asm("\
+    popq    %r15\n\t\
+    popq    %r14\n\t\
+    popq    %r13\n\t\
+    popq    %r12\n\t\
+    popq    %r11\n\t\
+    popq    %r10\n\t\
+    popq    %r9\n\t\
+    popq    %r8\n\t\
+    popq    %rsi\n\t\
+    popq    %rdi\n\t\
+    popq    %rbp\n\t\
+    popq    %rdx\n\t\
+    popq    %rcx\n\t\
+    popq    %rbx\n\t\
+    popq    %rax\n\t\
+    movq    %rax, %ds\n\t\
+    popq    %rax\n\t\
+    movq    %rax, %es\n\t\
+    popq    %rax\n\t\
+    leave\n\t\
+    iretq\n\t\
+");
+
+__attribute__((naked)) static void naked_handle_divide_by_zero() {
+    INTERRUPT_SERVICE_ROUTINE_PROLOGUE
+    // TODO: call C function which does the real work here
+    INTERRUPT_SERVICE_ROUTINE_EPILOGUE
 }
+
+// TODO: we could also try this approach, which would likely require us to specify different compilation flags for the ISR C file
+//__attribute__((interrupt)) static void handle_divide_by_zero( interrupt_frame_t *frame ) {}
 
 void interrupt_table_init() {
     // initialize interrupt_table_descriptor
