@@ -95,63 +95,74 @@ static void interrupt_table_set( size_t i, void *interrupt_service_routine ) {
 
 // saves registers prior to ISR body
 #define INTERRUPT_SERVICE_ROUTINE_PROLOGUE asm("\
-    pushq   %rax\n\t\
-    movq    %es, %rax\n\t\
-    pushq   %rax\n\t\
-    movq    %ds, %rax\n\t\
-    pushq   %rax\n\t\
-    pushq   %rbx\n\t\
-    pushq   %rcx\n\t\
-    pushq   %rdx\n\t\
-    pushq   %rbp\n\t\
-    pushq   %rdi\n\t\
-    pushq   %rsi\n\t\
-    pushq   %r8\n\t\
-    pushq   %r9\n\t\
-    pushq   %r10\n\t\
-    pushq   %r11\n\t\
-    pushq   %r12\n\t\
-    pushq   %r13\n\t\
-    pushq   %r14\n\t\
-    pushq   %r15\n\t\
-    movq    $0x10, %rdi\n\t\
-    movq    %rdi, %es\n\t\
-    movq    %rdi, %ds\n\t\
+    pushq   %rax        \n\t\
+    movq    %es, %rax   \n\t\
+    pushq   %rax        \n\t\
+    movq    %ds, %rax   \n\t\
+    pushq   %rax        \n\t\
+    pushq   %rbx        \n\t\
+    pushq   %rcx        \n\t\
+    pushq   %rdx        \n\t\
+    pushq   %rbp        \n\t\
+    pushq   %rdi        \n\t\
+    pushq   %rsi        \n\t\
+    pushq   %r8         \n\t\
+    pushq   %r9         \n\t\
+    pushq   %r10        \n\t\
+    pushq   %r11        \n\t\
+    pushq   %r12        \n\t\
+    pushq   %r13        \n\t\
+    pushq   %r14        \n\t\
+    pushq   %r15        \n\t\
+    movq    $0x10, %rdi \n\t\
+    movq    %rdi, %es   \n\t\
+    movq    %rdi, %ds   \n\t\
 ");
 
 // restored registers after ISR body and returns using IRETQ
 #define INTERRUPT_SERVICE_ROUTINE_EPILOGUE asm("\
-    popq    %r15\n\t\
-    popq    %r14\n\t\
-    popq    %r13\n\t\
-    popq    %r12\n\t\
-    popq    %r11\n\t\
-    popq    %r10\n\t\
-    popq    %r9\n\t\
-    popq    %r8\n\t\
-    popq    %rsi\n\t\
-    popq    %rdi\n\t\
-    popq    %rbp\n\t\
-    popq    %rdx\n\t\
-    popq    %rcx\n\t\
-    popq    %rbx\n\t\
-    popq    %rax\n\t\
-    movq    %rax, %ds\n\t\
-    popq    %rax\n\t\
-    movq    %rax, %es\n\t\
-    popq    %rax\n\t\
-    leave\n\t\
-    iretq\n\t\
+    popq    %r15        \n\t\
+    popq    %r14        \n\t\
+    popq    %r13        \n\t\
+    popq    %r12        \n\t\
+    popq    %r11        \n\t\
+    popq    %r10        \n\t\
+    popq    %r9         \n\t\
+    popq    %r8         \n\t\
+    popq    %rsi        \n\t\
+    popq    %rdi        \n\t\
+    popq    %rbp        \n\t\
+    popq    %rdx        \n\t\
+    popq    %rcx        \n\t\
+    popq    %rbx        \n\t\
+    popq    %rax        \n\t\
+    movq    %rax, %ds   \n\t\
+    popq    %rax        \n\t\
+    movq    %rax, %es   \n\t\
+    popq    %rax        \n\t\
+    leave               \n\t\
+    iretq               \n\t\
 ");
 
 __attribute__((naked)) static void naked_handle_divide_by_zero() {
     INTERRUPT_SERVICE_ROUTINE_PROLOGUE
-    // TODO: call C function which does the real work here
+    asm( "call handle_divide_by_zero \n\t" );
     INTERRUPT_SERVICE_ROUTINE_EPILOGUE
 }
 
-// TODO: we could also try this approach, which would likely require us to specify different compilation flags for the ISR C file
-//__attribute__((interrupt)) static void handle_divide_by_zero( interrupt_frame_t *frame ) {}
+static void handle_divide_by_zero() {
+    //vga_text_print( "divided by zero\n", 0x17 );
+    panic( "divided by zero\n" );
+    // TODO: if we don't panic, we must somehow tell system we handled this interrupt
+}
+
+static void divide_by_zero() {
+    asm( "\
+        xor %rax, %rax  \n\t\
+        xor %rdx, %rdx  \n\t\
+        div %rdx        \n\t\
+    ");
+}
 
 void interrupt_table_init() {
     // initialize interrupt_table_descriptor
@@ -161,9 +172,12 @@ void interrupt_table_init() {
     // clear interrupt table (we now it's evenly divisible by sizeof( uint64_t ), so we can clear the buffer in 64-bit chunks)
     buffer_clear_qwords( (uint64_t*)&interrupt_table, sizeof( interrupt_table_t ) / sizeof( uint64_t ) );
 
-    // ok, let's define a handler for "divide by zero", so we can test our table
+    // wire up 'naked_handle_divide_by_zero' the the 0th interrupt
+    interrupt_table_set( 0, naked_handle_divide_by_zero );
 
+    // load the interrupt table
+    load_interrupt_table( &interrupt_table_descriptor );
 
-    // load it
-    // TODO: load_interrupt_table( &interrupt_table_descriptor );
+    // fire off the divide-by-zero
+    divide_by_zero();
 }

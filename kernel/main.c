@@ -17,14 +17,6 @@ void panic( const char* details ) {
     while( true ) { asm ( "cli\n" "hlt\n" ); }
 }
 
-static void divide_by_zero() {
-    asm (
-        "xor %rax, %rax\n" // set rax to 0
-        "xor %rdx, %rdx\n" // set rdx to 0
-        "div %rdx\n" // divide rax / rdx, which will cause the 
-    );
-}
-
 static void interrupts_enable() {
     asm ( "sti\n" );
 }
