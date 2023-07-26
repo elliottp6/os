@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include "../memory/buffer.h"
 #include "interrupt_table.h"
+#include "../text/vga_text.h" // for printing
+#include "../main.h" // for panic
 
 #define NUM_INTERRUPT_TABLE_ENTRIES 256 // x86_64 always has 256 of these
 #define KERNEL_CODE_SELECTOR 0x08 // defined in boot.asm
@@ -79,8 +81,21 @@ static void interrupt_table_set( size_t i, void *interrupt_service_routine ) {
     entry->type_attribute_flags = 0xEE;
 }
 
-static void interrupt_handler_divide_by_zero() {
-    // TODO: implement me!
+// ISR for divide-by-zero
+// note: this is adapted from 32-bit code, is needs more work
+/*
+asm (
+    "pushad\n" // push general purpose regs
+    "push rsp\n" // save stack pointer
+    "push dword %1\n" // 1st argument
+    "call handle_divide_by_zero\n" // call C interrupt handler
+    "add rsp, 8\n" // pop rsp and 1st argument
+    "popad\n" // pop general purpose regs
+    "iret\n" // return from ISR
+);*/
+
+static void handle_divide_by_zero() {
+    panic( "division by zero!\n" );
 }
 
 void interrupt_table_init() {
