@@ -118,7 +118,7 @@ void interrupt_table_init() {
     load_interrupt_table( &interrupt_table_descriptor );
 
     // wire up 'handle_divide_by_zero' the the 0th interrupt
-    interrupt_table_set( 0, handle_divide_by_zero_wrapped );
+    interrupt_table_set( 0, handle_divide_by_zero_wrapper );
 
     // enable interrupts
     enable_interrupts();

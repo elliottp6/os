@@ -6,7 +6,7 @@ void interrupt_table_init();
 void interrupt_table_set( size_t i, void *interrupt_handler_wrapper );
 
 #define INTERRUPT_TABLE_BUILD_WRAPPER( c_function ) \
-    __attribute__((naked)) static void c_function##_wrapped() { \
+    __attribute__((naked)) static void c_function##_wrapper() { \
         asm("\
             pushq   %rax            \n\t\
             movq    %es, %rax       \n\t\
