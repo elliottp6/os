@@ -77,11 +77,20 @@ void interrupt_table_set( size_t i, void *interrupt_handler_wrapper ) {
     if( interrupts_enabled ) enable_interrupts();
 }
 
+// TODO: is this correct?
+static void outb( uint16_t port, uint8_t value ) {
+    asm( "outb %1, %0"
+        :
+        : "dN" (port), "a" (value) // mov port into DX, and value into AL
+    );
+}
+
 // TODO: turn this into a test by setting a global that we can check
 // TODO: we need a way to tell the CPU that we handled the interrupt
 static void handle_divide_by_zero() {
     //vga_text_print( "divided by zero\n", 0x17 );
     panic( "divided by zero\n" );
+    //outb( 0x20, 0x20 );
 }
 
 INTERRUPT_TABLE_BUILD_WRAPPER( handle_divide_by_zero );
@@ -113,6 +122,9 @@ void interrupt_table_init() {
 
     // enable interrupts
     enable_interrupts();
+
+    // check that interrupts are now enabled
+    if( !are_interrupts_enabled() ) panic( "interrupt_table_init: failed to enable interrupts\n" );
 
     // TODO: instead of this, make a real interrupt test! We can set a global variable and then check it.
     // divide_by_zero();
