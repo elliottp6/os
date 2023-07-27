@@ -172,9 +172,6 @@ start64:
     ;mov ebp, eax ; set base stack pointer
     ;mov esp, ebp ; stack stack pointer
 
-    ; enable interrupts
-    sti
-
     ; enter into the C code
     call main
 

@@ -17,27 +17,19 @@ void panic( const char* details ) {
     while( true ) { asm ( "cli\n" "hlt\n" ); }
 }
 
-static void interrupts_enable() {
-    asm ( "sti\n" );
-}
-
-static void interrupts_disable() {
-    asm ( "cli\n" );
-}
-
 void main() {
     // clear background to blue, and display welcome message
     vga_text_clear( 0x17 );
     vga_text_print( "Welcome to the 64-bit kernel!\n", 0x17 );
+
+    // initialize the interrupt table
+    interrupt_table_init();
 
     // run string tests
     string_run_tests();
 
     // initialize the kernel heap (this also runs heap tests)
     kernel_heap_init();
-
-    // initialize the interrupt table
-    interrupt_table_init();
 
     // machine is now ready for power off
     vga_text_print( "Exiting kernel & suspending CPU. Machine is now ready to be powered off.\n", 0x06 );
