@@ -77,30 +77,38 @@ void interrupt_table_set( size_t i, void *interrupt_handler_wrapper ) {
     if( interrupts_enabled ) enable_interrupts();
 }
 
-// TODO: is this correct?
-static void outb( uint16_t port, uint8_t value ) {
-    asm( "outb %1, %0"
-        :
-        : "dN" (port), "a" (value) // mov port into DX, and value into AL
-    );
+static uint8_t inb( uint16_t port ) { // taken from https://www.osdev.org/howtos/2/ (note used yet, but might as well define this here for future reference since we've defined outb)
+   uint8_t ret;
+   asm( "inb %%dx, %%al": "=a" (ret): "d" (port) );
+   return ret;
 }
 
-// TODO: turn this into a test by setting a global that we can check
-// TODO: we need a way to tell the CPU that we handled the interrupt
+static void outb( uint16_t port, uint8_t value ) { // taken from https://www.osdev.org/howtos/2/
+    asm( "outb %%al, %%dx" :: "d" (port), "a" (value) );
+}
+
 static void handle_divide_by_zero() {
-    //vga_text_print( "divided by zero\n", 0x17 );
     panic( "divided by zero\n" );
-    //outb( 0x20, 0x20 );
 }
 
 INTERRUPT_TABLE_BUILD_WRAPPER( handle_divide_by_zero );
 
-static void divide_by_zero() {
+static void handle_invalid_opcode() {
+    panic( "invalid opcode\n" );
+}
+
+INTERRUPT_TABLE_BUILD_WRAPPER( handle_invalid_opcode );
+
+static void cause_divide_by_zero() {
     asm( "\
         xor %rax, %rax  \n\t\
         xor %rdx, %rdx  \n\t\
         div %rdx        \n\t\
     ");
+}
+
+static void cause_invalid_opcode() {
+    asm( "ud2" );
 }
 
 void interrupt_table_init() {
@@ -117,8 +125,9 @@ void interrupt_table_init() {
     // load the interrupt table
     load_interrupt_table( &interrupt_table_descriptor );
 
-    // wire up 'handle_divide_by_zero' the the 0th interrupt
+    // wire up a few simple interrupts
     interrupt_table_set( 0, handle_divide_by_zero_wrapper );
+    interrupt_table_set( 6, handle_invalid_opcode_wrapper );
 
     // enable interrupts
     enable_interrupts();
@@ -127,5 +136,6 @@ void interrupt_table_init() {
     if( !are_interrupts_enabled() ) panic( "interrupt_table_init: failed to enable interrupts\n" );
 
     // TODO: instead of this, make a real interrupt test! We can set a global variable and then check it.
-    // divide_by_zero();
+    //cause_divide_by_zero();
+    //cause_invalid_opcode();
 }

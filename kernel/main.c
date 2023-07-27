@@ -8,13 +8,21 @@
 #include "memory/kernel_heap.h"
 #include "interrupt/interrupt_table.h"
 
+static void suspend() {
+    while( true ) { asm ( "cli\n" "hlt\n" ); }
+}
+
 void panic( const char* details ) {
     // print messages
-    vga_text_print( "System panic!\n", 0x4F );
-    if( NULL != details ) vga_text_print( details, 0x4F );
+    if( NULL != details ) {
+        vga_text_print( "System panic: ", 0x4F );
+        vga_text_print( details, 0x4F );
+    } else {
+        vga_text_print( "System panic!\n", 0x4F );
+    }
 
     // suspend CPU
-    while( true ) { asm ( "cli\n" "hlt\n" ); }
+    suspend();
 }
 
 void main() {
