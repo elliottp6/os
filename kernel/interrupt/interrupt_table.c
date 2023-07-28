@@ -87,6 +87,18 @@ static void outb( uint16_t port, uint8_t value ) { // taken from https://www.osd
     asm( "outb %%al, %%dx" :: "d" (port), "a" (value) );
 }
 
+__attribute__((naked)) static void c_function_prologue() {
+    asm( "\
+        pushq %rax\n\t\
+    ");
+}
+
+__attribute__((naked)) static void c_function_epilogue() {
+    asm( "\
+        popq %rax\n\t\
+    ");
+}
+
 static void handle_divide_by_zero() {
     panic( "divided by zero\n" );
 }
@@ -102,7 +114,7 @@ static void cause_divide_by_zero() {
 }
 
 static void handle_breakpoint() {
-    panic( "breakpoint\n" );
+    vga_text_print( "breakpoint OK\n", 0x17 );
 }
 
 INTERRUPT_TABLE_BUILD_WRAPPER( handle_breakpoint );
