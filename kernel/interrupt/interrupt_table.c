@@ -93,12 +93,6 @@ static void handle_divide_by_zero() {
 
 INTERRUPT_TABLE_BUILD_WRAPPER( handle_divide_by_zero );
 
-static void handle_invalid_opcode() {
-    panic( "invalid opcode\n" );
-}
-
-INTERRUPT_TABLE_BUILD_WRAPPER( handle_invalid_opcode );
-
 static void cause_divide_by_zero() {
     asm( "\
         xor %rax, %rax  \n\t\
@@ -106,6 +100,22 @@ static void cause_divide_by_zero() {
         div %rdx        \n\t\
     ");
 }
+
+static void handle_breakpoint() {
+    panic( "breakpoint\n" );
+}
+
+INTERRUPT_TABLE_BUILD_WRAPPER( handle_breakpoint );
+
+static void cause_breakpoint() {
+    asm( "int $3" );
+}
+
+static void handle_invalid_opcode() {
+    panic( "invalid opcode\n" );
+}
+
+INTERRUPT_TABLE_BUILD_WRAPPER( handle_invalid_opcode );
 
 static void cause_invalid_opcode() {
     asm( "ud2" );
@@ -127,6 +137,7 @@ void interrupt_table_init() {
 
     // wire up a few simple interrupts
     interrupt_table_set( 0, handle_divide_by_zero_wrapper );
+    interrupt_table_set( 3, handle_breakpoint_wrapper );
     interrupt_table_set( 6, handle_invalid_opcode_wrapper );
 
     // enable interrupts
@@ -138,4 +149,5 @@ void interrupt_table_init() {
     // TODO: instead of this, make a real interrupt test! We can set a global variable and then check it.
     //cause_divide_by_zero();
     //cause_invalid_opcode();
+    cause_breakpoint();
 }
