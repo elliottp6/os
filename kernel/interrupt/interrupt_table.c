@@ -87,18 +87,6 @@ static void outb( uint16_t port, uint8_t value ) { // taken from https://www.osd
     asm( "outb %%al, %%dx" :: "d" (port), "a" (value) );
 }
 
-__attribute__((naked)) static void c_function_prologue() {
-    asm( "\
-        pushq %rax\n\t\
-    ");
-}
-
-__attribute__((naked)) static void c_function_epilogue() {
-    asm( "\
-        popq %rax\n\t\
-    ");
-}
-
 static void handle_divide_by_zero() {
     panic( "divided by zero\n" );
 }
