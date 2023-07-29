@@ -54,15 +54,18 @@ static void disable_interrupts() {
 }
 
 void interrupt_table_set( size_t i, void *interrupt_handler_wrapper ) {
+    // get entry pointer
+    interrupt_table_entry_t *entry = &interrupt_table.entries[i]; 
+
+    // ensure that the entry has not already been set
+    if( 0 != entry->type_attribute_flags ) panic( "attempted to set interrupt handler that is already set\n" );
+
     // disable interrupts
     bool interrupts_enabled = are_interrupts_enabled();
     disable_interrupts();
 
-    // get function addrss 
+    // set ISR (interrupt service routine) address
     uint64_t handler_address = (uint64_t)interrupt_handler_wrapper;
-    interrupt_table_entry_t *entry = &interrupt_table.entries[i];    
-
-    // set isr address
     entry->isr_address_bit0_15 = (uint16_t)handler_address;
     entry->isr_address_bit16_31 = (uint16_t)(handler_address >> 16);
     entry->isr_address_bit32_63 = (uint32_t)(handler_address >> 32);
