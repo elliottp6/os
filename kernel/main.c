@@ -30,11 +30,14 @@ void main() {
     vga_text_clear( 0x17 );
     vga_text_print( "Welcome to the 64-bit kernel!\n", 0x17 );
 
+    // run string tests
+    string_run_tests();
+
     // initialize the interrupt table
     interrupt_table_init();
 
-    // run string tests
-    string_run_tests();
+    // now that we have interrupts, we can enable the keyboard (which will register interrupts)
+    // TODO
 
     // initialize the kernel heap (this also runs heap tests)
     kernel_heap_init();

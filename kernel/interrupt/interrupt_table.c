@@ -77,16 +77,6 @@ void interrupt_table_set( size_t i, void *interrupt_handler_wrapper ) {
     if( interrupts_enabled ) enable_interrupts();
 }
 
-static uint8_t inb( uint16_t port ) { // taken from https://www.osdev.org/howtos/2/ (note used yet, but might as well define this here for future reference since we've defined outb)
-   uint8_t ret;
-   asm( "inb %%dx, %%al": "=a" (ret): "d" (port) );
-   return ret;
-}
-
-static void outb( uint16_t port, uint8_t value ) { // taken from https://www.osdev.org/howtos/2/
-    asm( "outb %%al, %%dx" :: "d" (port), "a" (value) );
-}
-
 static void handle_divide_by_zero() {
     panic( "divided by zero\n" );
 }
