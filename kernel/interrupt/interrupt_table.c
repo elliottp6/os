@@ -91,8 +91,16 @@ void interrupt_table_set( size_t i, void *interrupt_handler_wrapper ) {
     if( interrupts_enabled ) enable_interrupts();
 }
 
-__attribute__((naked)) static void empty_interrupt_handler_wrapper() {
-    asm( "iretq" );
+// TODO: not sure if this is correct, but IRQs require acknowledgement to be sent to the PIC
+// the acknowledgement should probably be in a separate naked function, however
+__attribute__((naked)) static void empty_irq_handler_wrapper() {
+    asm( "\
+        mov %al, 0x20   \n\t\
+        out 0x20, %al   \n\t\
+        mov %al, 0x20   \n\t\
+        out 0xA0, %al   \n\t\
+        iretq           \n\t\
+    ");
 }
 
 static void divide_by_zero_handler() {

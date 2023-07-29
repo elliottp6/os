@@ -41,6 +41,7 @@ static uint8_t scancode_to_char( uint8_t scancode, uint8_t *table, uint8_t table
 }
 
 void key_state_handler() {
+    // TODO: we must acknolwedge receipt of this to the PIC
     panic( "keypress\n" );
 }
 
