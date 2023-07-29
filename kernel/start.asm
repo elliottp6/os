@@ -36,13 +36,13 @@ start32:
 
 ; es:edi must point to the pagemap
 enter_long_mode:
-    ; disable IRQs (interrupt requests) TODO: why is this different from cli/sti?
+    ; disable IRQs (interrupt requests)
     mov al, 0xFF
     out 0xA1, al
     out 0x21, al
-    nop ; no-ops (why???)
-    nop
-    lidt [IDT] ; load a zero-length interrupt-descriptor-table, which means any NMI (non-maskable-interrupt) will cause a triple fault (a non-recoverable fault, which reboots the CPU, or in qemu it will dump w/ the instruction pointer @ instruction that caused the first exception.)
+
+    ; load a zero-length interrupt-descriptor-table, which means any NMI (non-maskable-interrupt) will cause a triple fault (a non-recoverable fault, which reboots the CPU, or in qemu it will dump w/ the instruction pointer @ instruction that caused the first exception)
+    lidt [IDT]
 
     ; set CR4 flags
     ; enable 5th bit of CR4, which turns on PAE (physical address extension). This is required to enter long mode.

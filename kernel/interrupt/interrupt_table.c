@@ -53,6 +53,23 @@ static void disable_interrupts() {
     asm( "cli\n" );
 }
 
+static void disable_irqs() {
+    asm( "\
+        mov 0xFF, %al   \n\t\
+        out %al, 0xA1   \n\t\
+        out %al, 0x21   \n\t\
+    ");
+}
+
+// TODO: this is just a guess?
+static void enable_irqs() {
+    asm( "\
+        mov 0x00, %al   \n\t\
+        out %al, 0xA1   \n\t\
+        out %al, 0x21   \n\t\
+    ");
+}
+
 void interrupt_table_set( size_t i, void *interrupt_handler_wrapper ) {
     // get entry pointer
     interrupt_table_entry_t *entry = &interrupt_table.entries[i]; 
