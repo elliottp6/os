@@ -1,4 +1,9 @@
 #include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
+#include "io.h"
+#include "../interrupt/interrupt_table.h"
+#include "../main.h" // for panic
 #include "ps2_keyboard.h"
 
 // PS/2 port controller, see https://wiki.osdev.org/%228042%22_PS/2_Controller
@@ -6,13 +11,13 @@
 #define KEYBOARD_INPUT_PORT 0x60 // PS/2 data input port
 #define PS2_COMMAND_ENABLE_FIRST_PORT 0xAE //
 #define KEY_RELEASED_MASK 0x80 // bitmask for a single bit of the scancode
-#define KEY_PRESS_OR_RELEASE_INTERRUPT 0x21
+#define KEY_STATE_INTERRUPT 0x21
 #define CAPSLOCK_SCANCODE 0x3A
 
 // PS/2 keyboard actually have 3 sets of scancodes
 // for now, we just implement the first set (set #1)
 // see https://wiki.osdev.org/PS/2_Keyboard
-/*static uint8_t scancode_to_ascii_1[] = {
+/*static uint8_t scancode_to_ascii_table_1[] = {
     0x00, 0x1B, '1', '2', '3', '4', '5',
     '6', '7', '8', '9', '0', '-', '=',
     0x08, '\t', 'Q', 'W', 'E', 'R', 'T',
@@ -27,15 +32,24 @@
     '6', '+', '1', '2', '3', '0', '.'
 };*/
 
+static uint8_t scancode_to_char( uint8_t scancode, uint8_t *table, uint8_t table_length, bool capslock ) {
+    // decode character
+    uint8_t c = scancode < table_length ? table[scancode] : 0;
+
+    // make lowercase if capslock is off
+    return c + 32 * (!capslock & (c >= 'A') & (c <= 'Z'));
+}
+
+void key_state_handler() {
+    panic( "keypress\n" );
+}
+
+INTERRUPT_TABLE_BUILD_WRAPPER( key_state_handler );
+
 void ps2_keyboard_init() {
-    /*
-    // register the interrupt callback for keypresses
-    idt_register_interrupt_callback( ISR_KEYBOARD_INTERRUPT, classic_keyboard_handle_interrupt );
-    
-    // initial state of keyboard should be capslock disabled
-    keyboard_set_capslock( &classic_keyboard, KEYBOARD_CAPS_LOCK_OFF );
+    // set interrupt to handle keypress
+    interrupt_table_set( KEY_STATE_INTERRUPT, key_state_handler_wrapper );
 
     // enable the 1st PS/2 port
     io_write_byte( PS2_PORT, PS2_COMMAND_ENABLE_FIRST_PORT );
-    */
 }

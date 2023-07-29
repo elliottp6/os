@@ -7,6 +7,7 @@
 #include "memory/paging.h"
 #include "memory/kernel_heap.h"
 #include "interrupt/interrupt_table.h"
+#include "drivers/ps2_keyboard.h"
 
 static void suspend() {
     while( true ) { asm ( "cli\n" "hlt\n" ); }
@@ -33,15 +34,20 @@ void main() {
     // run string tests
     string_run_tests();
 
+    // initialize the kernel heap (this also runs heap tests)
+    kernel_heap_init();
+
     // initialize the interrupt table
     interrupt_table_init();
 
     // now that we have interrupts, we can enable the keyboard (which will register interrupts)
-    // TODO
+    // TODO: we probably have to re-enable IRQs for this to work???
+    ps2_keyboard_init();
 
-    // initialize the kernel heap (this also runs heap tests)
-    kernel_heap_init();
+    // do a busy wait
+    // TODO: go into some kind of sleeping-wait state
+    while( true );
 
     // machine is now ready for power off
-    vga_text_print( "Exiting kernel & suspending CPU. Machine is now ready to be powered off.\n", 0x06 );
+    // vga_text_print( "Exiting kernel & suspending CPU. Machine is now ready to be powered off.\n", 0x06 );
 }

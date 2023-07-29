@@ -80,11 +80,11 @@ void interrupt_table_set( size_t i, void *interrupt_handler_wrapper ) {
     if( interrupts_enabled ) enable_interrupts();
 }
 
-static void handle_divide_by_zero() {
+static void divide_by_zero_handler() {
     panic( "divided by zero\n" );
 }
 
-INTERRUPT_TABLE_BUILD_WRAPPER( handle_divide_by_zero );
+INTERRUPT_TABLE_BUILD_WRAPPER( divide_by_zero_handler );
 
 static void cause_divide_by_zero() {
     asm( "\
@@ -97,21 +97,21 @@ static void cause_divide_by_zero() {
 // globals modified by interrupt services routines (ISRs) should be volatile, see http://www.gammon.com.au/interrupts
 volatile static bool breakpoint_was_handled;
 
-static void handle_breakpoint() {
+static void breakpoint_handler() {
     breakpoint_was_handled = true;
 }
 
-INTERRUPT_TABLE_BUILD_WRAPPER( handle_breakpoint );
+INTERRUPT_TABLE_BUILD_WRAPPER( breakpoint_handler );
 
 static void cause_breakpoint() {
     asm( "int $3" );
 }
 
-static void handle_invalid_opcode() {
+static void invalid_opcode_handler() {
     panic( "invalid opcode\n" );
 }
 
-INTERRUPT_TABLE_BUILD_WRAPPER( handle_invalid_opcode );
+INTERRUPT_TABLE_BUILD_WRAPPER( invalid_opcode_handler );
 
 static void cause_invalid_opcode() {
     asm( "ud2" );
@@ -132,9 +132,9 @@ void interrupt_table_init() {
     load_interrupt_table( &interrupt_table_descriptor );
 
     // wire up a few simple interrupts
-    interrupt_table_set( 0, handle_divide_by_zero_wrapper );
-    interrupt_table_set( 3, handle_breakpoint_wrapper );
-    interrupt_table_set( 6, handle_invalid_opcode_wrapper );
+    interrupt_table_set( 0, divide_by_zero_handler_wrapper );
+    interrupt_table_set( 3, breakpoint_handler_wrapper );
+    interrupt_table_set( 6, invalid_opcode_handler_wrapper );
 
     // enable interrupts
     enable_interrupts();
@@ -147,7 +147,7 @@ void interrupt_table_init() {
     breakpoint_was_handled = false;
     cause_breakpoint();
 
-    // verify that the handle_breakpoint function was called
+    // verify that the breakpoint_handler function was called
     // b/c this process was halted, we do not need locks (there's no concurrent access). 'volatile' is sufficient to ensure we're access the variable's value directly from memory, and not cached in a register.
     if( !breakpoint_was_handled ) panic( "interrupt_table_init: breakpoint interrupt test failed\n" );
 }
