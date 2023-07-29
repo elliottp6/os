@@ -150,7 +150,11 @@ void interrupt_table_init() {
     if( !are_interrupts_enabled() ) panic( "interrupt_table_init: failed to enable interrupts\n" );
 
     // test the breakpoint interrupt
+    // note that a software interrupt will stop execution @ 'cause_breakpoint' to run the handler
     breakpoint_was_handled = false;
     cause_breakpoint();
+
+    // verify that the handle_breakpoint function was called
+    // b/c this process was halted, we do not need locks (there's no concurrent access). 'volatile' is sufficient to ensure we're access the variable's value directly from memory, and not cached in a register.
     if( !breakpoint_was_handled ) panic( "interrupt_table_init: breakpoint interrupt test failed\n" );
 }
