@@ -4,6 +4,7 @@
 
 void interrupt_table_init();
 void interrupt_table_set( size_t i, void *interrupt_handler_wrapper );
+void interrupt_handler();
 
 // TODO: we need to save the AVX registers as well (or, we can compile our kernel to ensure we never use them)
 // which registers are guaranteed to be preserved in a gcc C function call? see https://stackoverflow.com/questions/18024672/what-registers-are-preserved-through-a-linux-x86-64-function-call

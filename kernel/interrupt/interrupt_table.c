@@ -54,14 +54,12 @@ static void disable_interrupts() {
     asm( "cli\n" );
 }
 
-static void disable_irqs() {
-    io_write_byte( 0xA1, 0xFF ); // PICS IRQ disable bits
-    io_write_byte( 0x21, 0xFF ); // PICM IRQ disable bits
-}
+// we've defined these externally in interrupt_routines.asm
+// we need to hook these up using interrupt_table_set
+extern void* interrupt_service_routine_pointer_table[NUM_INTERRUPT_TABLE_ENTRIES];
 
-static void enable_irqs() {
-    io_write_byte( 0xA1, 0 ); // PICS IRQ disable bits
-    //io_write_byte( 0x21, 0 ); // PICM <-- this one causes a crash, are we not handling a particular interrupt?
+void interrupt_handler() {
+    panic( "there was an interrupt!\n" );
 }
 
 void interrupt_table_set( size_t i, void *interrupt_handler_wrapper ) {
@@ -91,17 +89,26 @@ void interrupt_table_set( size_t i, void *interrupt_handler_wrapper ) {
     if( interrupts_enabled ) enable_interrupts();
 }
 
-// TODO: not sure if this is correct, but IRQs require acknowledgement to be sent to the PIC
-// the acknowledgement should probably be in a separate naked function, however
-__attribute__((naked)) static void empty_irq_handler_wrapper() {
-    asm( "\
-        mov %al, 0x20   \n\t\
-        out 0x20, %al   \n\t\
-        mov %al, 0x20   \n\t\
-        out 0xA0, %al   \n\t\
-        iretq           \n\t\
-    ");
+#define IRQ_0_7_COMMAND_PORT 0x20
+#define IRQ_0_7_DISABLE_PORT 0x21
+#define IRQ_8_15_COMMAND_PORT 0xA0
+#define IRQ_8_15_DISABLE_PORT 0xA1
+
+static void disable_irqs() {
+    io_write_byte( IRQ_0_7_DISABLE_PORT, 0xFF );
+    io_write_byte( IRQ_8_15_DISABLE_PORT, 0xFF );
 }
+
+static void enable_irqs() {
+    //io_write_byte( IRQ_0_7_DISABLE_PORT, 0 );
+    io_write_byte( IRQ_8_15_DISABLE_PORT, 0 );
+}
+
+static void acknowledge_irq() {
+    io_write_byte( IRQ_0_7_COMMAND_PORT, 0x20 ); // we only need to send to the 0-7 port, b/c they're daisy-chained together
+}
+
+INTERRUPT_TABLE_BUILD_WRAPPER( acknowledge_irq );
 
 static void divide_by_zero_handler() {
     panic( "divided by zero\n" );
@@ -159,8 +166,11 @@ void interrupt_table_init() {
     interrupt_table_set( 3, breakpoint_handler_wrapper );
     interrupt_table_set( 6, invalid_opcode_handler_wrapper );
 
-    // TODO: set the rest to the empty handler?
-    // TODO empty_interrupt_handler_wrapper
+    // bah, this is a mess... we're just gonna need to define a custom function for every interrupt
+    // handler... 
+
+    // TODO: setup a default handler for the hardware IRQs
+    // acknowledge_irq_wrapper
 
     // enable interrupts
     enable_interrupts();
