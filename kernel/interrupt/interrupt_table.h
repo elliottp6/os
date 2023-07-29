@@ -3,7 +3,6 @@
 #include <stddef.h>
 
 void interrupt_table_init();
-void interrupt_table_set( size_t i, void *interrupt_handler_wrapper );
 void interrupt_handler();
 
 // TODO: we need to save the AVX registers as well (or, we can compile our kernel to ensure we never use them)

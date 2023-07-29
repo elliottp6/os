@@ -62,7 +62,7 @@ void interrupt_handler() {
     panic( "there was an interrupt!\n" );
 }
 
-void interrupt_table_set( size_t i, void *interrupt_handler_wrapper ) {
+static void interrupt_table_set( size_t i, void *interrupt_routine ) {
     // get entry pointer
     interrupt_table_entry_t *entry = &interrupt_table.entries[i]; 
 
@@ -74,10 +74,10 @@ void interrupt_table_set( size_t i, void *interrupt_handler_wrapper ) {
     disable_interrupts();
 
     // set ISR (interrupt service routine) address
-    uint64_t handler_address = (uint64_t)interrupt_handler_wrapper;
-    entry->isr_address_bit0_15 = (uint16_t)handler_address;
-    entry->isr_address_bit16_31 = (uint16_t)(handler_address >> 16);
-    entry->isr_address_bit32_63 = (uint32_t)(handler_address >> 32);
+    uint64_t address = (uint64_t)interrupt_routine;
+    entry->isr_address_bit0_15 = (uint16_t)address;
+    entry->isr_address_bit16_31 = (uint16_t)(address >> 16);
+    entry->isr_address_bit32_63 = (uint32_t)(address >> 32);
 
     // isr executes using the kernel code segment selector
     entry->code_segment_selector = KERNEL_CODE_SELECTOR;
