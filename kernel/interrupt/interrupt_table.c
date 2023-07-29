@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include "io.h"
 #include "interrupt_table.h"
 #include "../memory/buffer.h"
 #include "../text/vga_text.h" // for printing
@@ -54,20 +55,13 @@ static void disable_interrupts() {
 }
 
 static void disable_irqs() {
-    asm( "\
-        mov 0xFF, %al   \n\t\
-        out %al, 0xA1   \n\t\
-        out %al, 0x21   \n\t\
-    ");
+    io_write_byte( 0xA1, 0xFF ); // PICS IRQ disable bits
+    io_write_byte( 0x21, 0xFF ); // PICM IRQ disable bits
 }
 
-// TODO: this is just a guess?
 static void enable_irqs() {
-    asm( "\
-        mov 0x00, %al   \n\t\
-        out %al, 0xA1   \n\t\
-        out %al, 0x21   \n\t\
-    ");
+    io_write_byte( 0xA1, 0 ); // PICS IRQ disable bits
+    //io_write_byte( 0x21, 0 ); // PICM <-- this one causes a crash, are we not handling a particular interrupt?
 }
 
 void interrupt_table_set( size_t i, void *interrupt_handler_wrapper ) {
@@ -95,6 +89,10 @@ void interrupt_table_set( size_t i, void *interrupt_handler_wrapper ) {
 
     // enable interrupts (if they were enabled before calling this function)
     if( interrupts_enabled ) enable_interrupts();
+}
+
+__attribute__((naked)) static void empty_interrupt_handler_wrapper() {
+    asm( "iretq" );
 }
 
 static void divide_by_zero_handler() {
@@ -153,10 +151,11 @@ void interrupt_table_init() {
     interrupt_table_set( 3, breakpoint_handler_wrapper );
     interrupt_table_set( 6, invalid_opcode_handler_wrapper );
 
+    // TODO: set the rest to the empty handler?
+    // TODO empty_interrupt_handler_wrapper
+
     // enable interrupts
     enable_interrupts();
-
-    // check that interrupts are now enabled
     if( !are_interrupts_enabled() ) panic( "interrupt_table_init: failed to enable interrupts\n" );
 
     // test the breakpoint interrupt
@@ -167,4 +166,7 @@ void interrupt_table_init() {
     // verify that the breakpoint_handler function was called
     // b/c this process was halted, we do not need locks (there's no concurrent access). 'volatile' is sufficient to ensure we're access the variable's value directly from memory, and not cached in a register.
     if( !breakpoint_was_handled ) panic( "interrupt_table_init: breakpoint interrupt test failed\n" );
+
+    // now enable IRQs so we can recieve hardware interrupts (e.g. keypresses)
+    enable_irqs();
 }

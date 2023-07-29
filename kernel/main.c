@@ -42,12 +42,12 @@ void main() {
 
     // now that we have interrupts, we can enable the keyboard (which will register interrupts)
     // TODO: we probably have to re-enable IRQs for this to work???
-    ps2_keyboard_init();
+    //ps2_keyboard_init();
 
     // do a busy wait
     // TODO: go into some kind of sleeping-wait state
-    while( true );
+    //while( true );
 
     // machine is now ready for power off
-    // vga_text_print( "Exiting kernel & suspending CPU. Machine is now ready to be powered off.\n", 0x06 );
+    vga_text_print( "Exiting kernel & suspending CPU. Machine is now ready to be powered off.\n", 0x06 );
 }

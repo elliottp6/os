@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include "io.h"
+#include "../interrupt/io.h"
 #include "../interrupt/interrupt_table.h"
 #include "../main.h" // for panic
 #include "ps2_keyboard.h"
