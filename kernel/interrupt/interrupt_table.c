@@ -101,8 +101,11 @@ static void cause_divide_by_zero() {
     ");
 }
 
+// globals modified by interrupt services routines (ISRs) should be volatile, see http://www.gammon.com.au/interrupts
+volatile static bool breakpoint_was_handled;
+
 static void handle_breakpoint() {
-    vga_text_print( "breakpoint OK\n", 0x17 );
+    breakpoint_was_handled = true;
 }
 
 INTERRUPT_TABLE_BUILD_WRAPPER( handle_breakpoint );
@@ -146,8 +149,8 @@ void interrupt_table_init() {
     // check that interrupts are now enabled
     if( !are_interrupts_enabled() ) panic( "interrupt_table_init: failed to enable interrupts\n" );
 
-    // TODO: instead of this, make a real interrupt test! We can set a global variable and then check it.
-    //cause_divide_by_zero();
-    //cause_invalid_opcode();
+    // test the breakpoint interrupt
+    breakpoint_was_handled = false;
     cause_breakpoint();
+    if( !breakpoint_was_handled ) panic( "interrupt_table_init: breakpoint interrupt test failed\n" );
 }
