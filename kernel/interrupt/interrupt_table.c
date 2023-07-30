@@ -25,10 +25,10 @@ typedef struct interrupt_table_entry { // aka interrupt descriptor. struct field
     uint32_t reserved_leave_as_0;
 } interrupt_table_entry_t;
 
-// define table, table descriptor, interrupt routines
+// define table descriptor, table, and interrupt wrappers (written in ASM) which call interrupt handlers (written in C)
 static interrupt_table_descriptor_t interrupt_table_descriptor;
 static interrupt_table_entry_t interrupt_table[INTERRUPT_TABLE_LENGTH]; // aka IDT (interrupt descriptor table)
-extern void* interrupt_service_routine_pointer_table[INTERRUPT_TABLE_LENGTH]; // ISRs written in assembly
+extern void* interrupt_wrappers[INTERRUPT_TABLE_LENGTH]; // actual interrutp service routines written in assembly, which just call their corresponding C interrupt handler
 interrupt_handler *interrupt_handlers[INTERRUPT_TABLE_LENGTH]; // handlers written in C
 
 static void load_interrupt_table( interrupt_table_descriptor_t *descriptor ) {
@@ -49,12 +49,7 @@ static void disable_interrupts() {
     asm( "cli\n" );
 }
 
-void interrupt_table_set_handler( size_t i, interrupt_handler *handler ) {
-    if( i >= INTERRUPT_TABLE_LENGTH ) panic( "interrupt_table_set_handler: invalid interrupt index\n" );
-    interrupt_handlers[i] = handler;
-}
-
-static void interrupt_table_set_routine( size_t i, void *interrupt_routine ) {
+static void interrupt_table_set_wrapper( size_t i, void *interrupt_wrapper ) {
     // get entry pointer
     interrupt_table_entry_t *entry = &interrupt_table[i]; 
 
@@ -62,7 +57,7 @@ static void interrupt_table_set_routine( size_t i, void *interrupt_routine ) {
     entry->code_segment_selector = KERNEL_CODE_SELECTOR;
 
     // set ISR (interrupt service routine) address
-    uint64_t address = (uint64_t)interrupt_routine;
+    uint64_t address = (uint64_t)interrupt_wrapper;
     entry->isr_address_bit0_15 = (uint16_t)address;
     entry->isr_address_bit16_31 = (uint16_t)(address >> 16);
     entry->isr_address_bit32_63 = (uint32_t)(address >> 32);
@@ -73,6 +68,11 @@ static void interrupt_table_set_routine( size_t i, void *interrupt_routine ) {
 
     // bits: Present = 1, DPL (descriptor privilege level) = 11 (ring 3), storage segment = 0 (must be 0 for interrupt & trap gates), gate type = 11 (3 = interrupt gate), reserved = 0
     entry->type_attribute_flags = 0xEE;
+}
+
+void interrupt_table_set_handler( size_t i, interrupt_handler *handler ) {
+    if( i >= INTERRUPT_TABLE_LENGTH ) panic( "interrupt_table_set_handler: invalid interrupt index\n" );
+    interrupt_handlers[i] = handler;
 }
 
 // TODO: add a stack frame argument
@@ -131,7 +131,7 @@ void interrupt_table_init() {
     // set all of the interrupts to the routines we wrote in interrupt_routines.asm
     // also, set all of the handlers to the default handler
     for( int i = 0; i < INTERRUPT_TABLE_LENGTH; i++ ) {
-        interrupt_table_set_routine( i, interrupt_service_routine_pointer_table[i] );
+        interrupt_table_set_wrapper( i, interrupt_wrappers[i] );
         interrupt_table_set_handler( i, (interrupt_handler*)interrupt_table_default_handler );
     }
 

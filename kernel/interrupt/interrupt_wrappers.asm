@@ -8,7 +8,7 @@ section .asm
 extern interrupt_handlers
 
 ; exports
-global interrupt_service_routine_pointer_table
+global interrupt_wrappers
 
 ; number of total interrupts in x86_64
 %define NUM_INTERRUPT_TABLE_ENTRIES 256
@@ -17,7 +17,7 @@ global interrupt_service_routine_pointer_table
 ; macro which builds an interrupt service routine
 ; TODO: note that we are NOT yet saving the SIMD registers, which could be clobbered by the interrupt handler
 ; ... we'll implement this later on
-%macro write_interrupt_service_routine 1
+%macro write_interrupt_wrapper 1
     global int%1 ; export this as int0, int1, int2, ...
     int%1: ; label
         push rax
@@ -48,7 +48,7 @@ global interrupt_service_routine_pointer_table
 ; create NUM_INTERRUPT_TABLE_ENTRIES instances of our interrupt service routine
 %assign i 0
 %rep NUM_INTERRUPT_TABLE_ENTRIES
-    write_interrupt_service_routine i
+    write_interrupt_wrapper i
     %assign i i+1
 %endrep
 
@@ -56,14 +56,14 @@ global interrupt_service_routine_pointer_table
 section .data
 
 ; writes a 64-bit pointer to the ISR label
-%macro write_interrupt_service_routine_pointer 1
+%macro write_interrupt_wrapper_pointer 1
     dq int%1
 %endmacro
 
 ; table of 64-bit function pointers to the interrupt service routines
-interrupt_service_routine_pointer_table:
+interrupt_wrappers:
 %assign i 0
 %rep NUM_INTERRUPT_TABLE_ENTRIES
-    write_interrupt_service_routine_pointer i
+    write_interrupt_wrapper_pointer i
     %assign i i+1
 %endrep
