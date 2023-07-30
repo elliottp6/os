@@ -45,8 +45,6 @@ void key_state_handler() {
     panic( "keypress\n" );
 }
 
-INTERRUPT_TABLE_BUILD_WRAPPER( key_state_handler );
-
 // TODO
 void ps2_keyboard_init() {
     // set interrupt to handle keypress

@@ -33,12 +33,11 @@ typedef struct interrupt_table {
 interrupt_table_descriptor_t interrupt_table_descriptor;
 interrupt_table_t interrupt_table; // aka IDT (interrupt descriptor table)
 
+// assembly interrupt routines
+extern void* interrupt_service_routine_pointer_table[NUM_INTERRUPT_TABLE_ENTRIES];
+
 static void load_interrupt_table( interrupt_table_descriptor_t *descriptor ) {
-    asm(
-        "lidt %[descriptor]\n"
-        :
-        : [descriptor] "m" (*descriptor)
-    );
+    asm( "lidt %[descriptor]" :: [descriptor] "m" (*descriptor) );
 }
 
 static bool are_interrupts_enabled() {
@@ -54,15 +53,6 @@ static void enable_interrupts() {
 static void disable_interrupts() {
     asm( "cli\n" );
 }
-
-// we've defined these externally in interrupt_routines.asm
-// we need to hook these up using interrupt_table_set
-// these just call 'interrupt_handler'
-// TODO: they need to pass the interrupt index as an argument
-extern void* interrupt_service_routine_pointer_table[NUM_INTERRUPT_TABLE_ENTRIES];
-
-// globals modified by interrupt services routines (ISRs) should be volatile, see http://www.gammon.com.au/interrupts
-volatile static bool breakpoint_was_handled;
 
 static void interrupt_table_set( size_t i, void *interrupt_routine ) {
     // get entry pointer
@@ -85,33 +75,6 @@ static void interrupt_table_set( size_t i, void *interrupt_routine ) {
     entry->type_attribute_flags = 0xEE;
 }
 
-#define IRQ_0_7_COMMAND_PORT 0x20
-#define IRQ_0_7_DISABLE_PORT 0x21
-#define IRQ_8_15_COMMAND_PORT 0xA0
-#define IRQ_8_15_DISABLE_PORT 0xA1
-
-static void disable_irqs() {
-    io_write_byte( IRQ_0_7_DISABLE_PORT, 0xFF );
-    io_write_byte( IRQ_8_15_DISABLE_PORT, 0xFF );
-}
-
-static void enable_irqs() {
-    io_write_byte( IRQ_0_7_DISABLE_PORT, 0 );
-    io_write_byte( IRQ_8_15_DISABLE_PORT, 0 );
-}
-
-static void acknowledge_irq() {
-    io_write_byte( IRQ_0_7_COMMAND_PORT, 0x20 ); // we only need to send to the 0-7 port, b/c they're daisy-chained together
-}
-
-INTERRUPT_TABLE_BUILD_WRAPPER( acknowledge_irq );
-
-static void divide_by_zero_handler() {
-    panic( "divided by zero\n" );
-}
-
-INTERRUPT_TABLE_BUILD_WRAPPER( divide_by_zero_handler );
-
 static void cause_divide_by_zero() {
     asm( "\
         xor %rax, %rax  \n\t\
@@ -120,21 +83,9 @@ static void cause_divide_by_zero() {
     ");
 }
 
-static void breakpoint_handler() {
-    breakpoint_was_handled = true;
-}
-
-INTERRUPT_TABLE_BUILD_WRAPPER( breakpoint_handler );
-
 static void cause_breakpoint() {
     asm( "int $3" );
 }
-
-static void invalid_opcode_handler() {
-    panic( "invalid opcode\n" );
-}
-
-INTERRUPT_TABLE_BUILD_WRAPPER( invalid_opcode_handler );
 
 static void cause_invalid_opcode() {
     asm( "ud2" );
@@ -171,7 +122,7 @@ void interrupt_table_init() {
     if( !are_interrupts_enabled() ) panic( "interrupt_table_init: failed to enable interrupts\n" );
 
     // test an interrupt
-    cause_divide_by_zero();
+    //cause_divide_by_zero();
 
     // test the breakpoint interrupt
     // note that a software interrupt will stop execution @ 'cause_breakpoint' to run the handler
@@ -183,5 +134,5 @@ void interrupt_table_init() {
     //if( !breakpoint_was_handled ) panic( "interrupt_table_init: breakpoint interrupt test failed\n" );
 
     // now enable IRQs so we can recieve hardware interrupts (e.g. keypresses)
-    // enable_irqs();
+    // io_enable_irqs();
 }
