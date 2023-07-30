@@ -12,6 +12,9 @@ global interrupt_wrappers
 
 ; number of total interrupts in x86_64
 %define NUM_INTERRUPT_TABLE_ENTRIES 256
+
+; we need to send a signal to this port to tell the PIC that we've processed the IRQ
+; note: IRQ8_15 is daisy chained so doesn't need a separate acknowledgement
 %define IRQ_0_7_COMMAND_PORT 0x20
 
 ; macro which builds an interrupt service routine
