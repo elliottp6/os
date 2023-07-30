@@ -48,7 +48,10 @@ global interrupt_service_routine_pointer_table
     %assign i i+1
 %endrep
 
-; writes a 64-bit pointer to the ISR # in the argument
+; tell linker to put the rest of this file into the data section
+section .data
+
+; writes a 64-bit pointer to the ISR label
 %macro write_interrupt_service_routine_pointer 1
     dq int%1
 %endmacro
