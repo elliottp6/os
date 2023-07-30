@@ -5,7 +5,7 @@ section .asm
 [BITS 64]
 
 ; imports
-extern interrupt_handler
+extern interrupt_table_handler
 
 ; exports
 global interrupt_service_routine_pointer_table
@@ -29,7 +29,7 @@ global interrupt_service_routine_pointer_table
         push r10
         push r11
         mov rdi, %1 ; integer argument for 'interrupt_handler'
-        call interrupt_handler
+        call interrupt_table_handler
         pop r11
         pop r10
         pop r9

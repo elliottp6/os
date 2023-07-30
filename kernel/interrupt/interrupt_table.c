@@ -9,6 +9,7 @@
 
 #define NUM_INTERRUPT_TABLE_ENTRIES 256 // x86_64 always has 256 of these
 #define KERNEL_CODE_SELECTOR 0x08 // defined in boot.asm
+#define TRACE_INTERRUPTS
 
 typedef struct interrupt_table_descriptor {
     uint16_t interrupt_table_size_minus_1;
@@ -25,16 +26,11 @@ typedef struct interrupt_table_entry { // aka interrupt descriptor. struct field
     uint32_t reserved_leave_as_0;
 } interrupt_table_entry_t;
 
-typedef struct interrupt_table {
-    interrupt_table_entry_t entries[NUM_INTERRUPT_TABLE_ENTRIES];
-} interrupt_table_t;
-
-// define the table & the table descriptor
-interrupt_table_descriptor_t interrupt_table_descriptor;
-interrupt_table_t interrupt_table; // aka IDT (interrupt descriptor table)
-
-// assembly interrupt routines
-extern void* interrupt_service_routine_pointer_table[NUM_INTERRUPT_TABLE_ENTRIES];
+// define table, table descriptor, interrupt routines & callbacks
+static interrupt_table_descriptor_t interrupt_table_descriptor;
+static interrupt_table_entry_t interrupt_table[NUM_INTERRUPT_TABLE_ENTRIES]; // aka IDT (interrupt descriptor table)
+extern void* interrupt_service_routine_pointer_table[NUM_INTERRUPT_TABLE_ENTRIES]; // written in assembly
+static void(*interrupt_callbacks[NUM_INTERRUPT_TABLE_ENTRIES])(); // calls backs written in C
 
 static void load_interrupt_table( interrupt_table_descriptor_t *descriptor ) {
     asm( "lidt %[descriptor]" :: [descriptor] "m" (*descriptor) );
@@ -54,9 +50,14 @@ static void disable_interrupts() {
     asm( "cli\n" );
 }
 
-static void interrupt_table_set( size_t i, void *interrupt_routine ) {
+void interrupt_table_set_callback( size_t i, void(*callback)() ) {
+    if( i > NUM_INTERRUPT_TABLE_ENTRIES ) panic( "interrupt_table_set_callback: invalid interrupt index\n" );
+    interrupt_callbacks[i] = callback;
+}
+
+static void interrupt_table_set_routine( size_t i, void *interrupt_routine ) {
     // get entry pointer
-    interrupt_table_entry_t *entry = &interrupt_table.entries[i]; 
+    interrupt_table_entry_t *entry = &interrupt_table[i]; 
 
     // isr executes using the kernel code segment selector
     entry->code_segment_selector = KERNEL_CODE_SELECTOR;
@@ -75,6 +76,29 @@ static void interrupt_table_set( size_t i, void *interrupt_routine ) {
     entry->type_attribute_flags = 0xEE;
 }
 
+// TODO: add a stack frame argument
+void interrupt_table_handler( uint64_t interrupt ) {
+    // print interrupt number
+    #ifdef TRACE_INTERRUPTS
+    vga_text_print( "interrupt ", 0x17 );
+    vga_text_print( string_from_int64( (int64_t)interrupt ), 0x17 );
+    vga_text_print( "\n", 0x17 );
+    #endif
+    
+    // execute callback function
+    void (*callback)() = interrupt_callbacks[interrupt];
+    if( callback ) {
+        callback();
+    }
+
+    // probably not all interrupts require this, but it doesn't hurt
+    io_acknowledge_irq();
+}
+
+static void divide_by_zero_callback() {
+    panic( "divided by zero\n" );
+}
+
 static void cause_divide_by_zero() {
     asm( "\
         xor %rax, %rax  \n\t\
@@ -83,56 +107,63 @@ static void cause_divide_by_zero() {
     ");
 }
 
-static void cause_breakpoint() {
-    asm( "int $3" );
+static void invalid_opcode_callback() {
+    panic( "invalid opcode\n" );
 }
 
 static void cause_invalid_opcode() {
     asm( "ud2" );
 }
 
-// TODO: consider adding a "stack frame" argument
-void interrupt_handler( uint64_t interrupt ) {
-    vga_text_print( "interrupt #", 0x17 );
-    vga_text_print( string_from_int64( (int64_t)interrupt ), 0x17 );
-    vga_text_print( "\n", 0x17 );
-    panic( "there was an interrupt!\n" );
-    //breakpoint_was_handled = true;
-    //acknowledge_irq();
+static volatile bool breakpoint_hit;
+
+static void breakpoint_callback_test() {
+    breakpoint_hit = true;
+}
+
+static void breakpoint_callback() {
+    panic( "breakpoint\n" );
+}
+
+static void cause_breakpoint() {
+    asm( "int $3" );
 }
 
 void interrupt_table_init() {
     // interrupts should be disabled prior to calling this function
+    // TODO: should also check that maskable IRQs are disabled?
     if( are_interrupts_enabled() ) panic( "interrupt_table_init: interrupts must be disabled before calling this function\n" );
 
-    // initialize interrupt_table_descriptor
-    interrupt_table_descriptor.interrupt_table_size_minus_1 = sizeof( interrupt_table_t ) - 1;
+    // initialize interrupt table descriptor
+    interrupt_table_descriptor.interrupt_table_size_minus_1 = sizeof( interrupt_table ) - 1;
     interrupt_table_descriptor.interrupt_table_location = (uint64_t)&interrupt_table;
+
+    // clear all of the interrupt callbacks (they're each a qword, so this should work)
+    buffer_clear_qwords( (uint64_t*)interrupt_callbacks, NUM_INTERRUPT_TABLE_ENTRIES );
 
     // set all of the interrupts to the routines we wrote in interrupt_routines.asm
     for( int i = 0; i < NUM_INTERRUPT_TABLE_ENTRIES; i++ ) {
-        interrupt_table_set( i, interrupt_service_routine_pointer_table[i] );
+        interrupt_table_set_routine( i, interrupt_service_routine_pointer_table[i] );
     }
+
+    // set a few default callbacks to system panic
+    interrupt_table_set_callback( 0, divide_by_zero_callback );
+    interrupt_table_set_callback( 3, breakpoint_callback_test );
+    interrupt_table_set_callback( 6, invalid_opcode_callback );
 
     // load the interrupt table
     load_interrupt_table( &interrupt_table_descriptor );
 
-    // enable interrupts
+    // enable interrupts & IRQs
     enable_interrupts();
+    io_enable_irqs();
     if( !are_interrupts_enabled() ) panic( "interrupt_table_init: failed to enable interrupts\n" );
 
-    // test an interrupt
-    //cause_divide_by_zero();
+    // test breakpoint interrupt
+    breakpoint_hit = false;
+    cause_breakpoint();
+    if( !breakpoint_hit ) panic( "interrupt_table_init: test failed for breakpoint interrupt" );
 
-    // test the breakpoint interrupt
-    // note that a software interrupt will stop execution @ 'cause_breakpoint' to run the handler
-    //breakpoint_was_handled = false;
-    //cause_breakpoint();
-
-    // verify that the breakpoint_handler function was called
-    // b/c this process was halted, we do not need locks (there's no concurrent access). 'volatile' is sufficient to ensure we're access the variable's value directly from memory, and not cached in a register.
-    //if( !breakpoint_was_handled ) panic( "interrupt_table_init: breakpoint interrupt test failed\n" );
-
-    // now enable IRQs so we can recieve hardware interrupts (e.g. keypresses)
-    // io_enable_irqs();
+    // replace the test breakpoint callback w/ the real callback (the real one just panics)
+    interrupt_table_set_callback( 3, breakpoint_callback );
 }
