@@ -3,6 +3,7 @@
 #include "io.h"
 #include "interrupt_table.h"
 #include "../memory/buffer.h"
+#include "../text/string.h" // for printing integers
 #include "../text/vga_text.h" // for printing
 #include "../main.h" // for panic
 
@@ -139,7 +140,11 @@ static void cause_invalid_opcode() {
     asm( "ud2" );
 }
 
-void interrupt_handler() {
+// TODO: consider adding a "stack frame" argument
+void interrupt_handler( uint64_t interrupt ) {
+    vga_text_print( "interrupt #", 0x17 );
+    vga_text_print( string_from_int64( (int64_t)interrupt ), 0x17 );
+    vga_text_print( "\n", 0x17 );
     panic( "there was an interrupt!\n" );
     //breakpoint_was_handled = true;
     //acknowledge_irq();
@@ -166,7 +171,7 @@ void interrupt_table_init() {
     if( !are_interrupts_enabled() ) panic( "interrupt_table_init: failed to enable interrupts\n" );
 
     // test an interrupt
-    //cause_divide_by_zero();
+    cause_divide_by_zero();
 
     // test the breakpoint interrupt
     // note that a software interrupt will stop execution @ 'cause_breakpoint' to run the handler

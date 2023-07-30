@@ -28,6 +28,7 @@ global interrupt_service_routine_pointer_table
         push r9
         push r10
         push r11
+        mov rdi, %1 ; integer argument for 'interrupt_handler'
         call interrupt_handler
         pop r11
         pop r10
