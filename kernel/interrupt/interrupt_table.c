@@ -7,7 +7,6 @@
 #include "../text/vga_text.h" // for printing
 #include "../main.h" // for panic
 
-#define NUM_INTERRUPT_TABLE_ENTRIES 256 // x86_64 always has 256 of these
 #define KERNEL_CODE_SELECTOR 0x08 // defined in boot.asm
 #define TRACE_INTERRUPTS
 
@@ -26,11 +25,11 @@ typedef struct interrupt_table_entry { // aka interrupt descriptor. struct field
     uint32_t reserved_leave_as_0;
 } interrupt_table_entry_t;
 
-// define table, table descriptor, interrupt routines & callbacks
+// define table, table descriptor, interrupt routines
 static interrupt_table_descriptor_t interrupt_table_descriptor;
-static interrupt_table_entry_t interrupt_table[NUM_INTERRUPT_TABLE_ENTRIES]; // aka IDT (interrupt descriptor table)
-extern void* interrupt_service_routine_pointer_table[NUM_INTERRUPT_TABLE_ENTRIES]; // written in assembly
-static void(*interrupt_callbacks[NUM_INTERRUPT_TABLE_ENTRIES])(); // calls backs written in C
+static interrupt_table_entry_t interrupt_table[INTERRUPT_TABLE_LENGTH]; // aka IDT (interrupt descriptor table)
+extern void* interrupt_service_routine_pointer_table[INTERRUPT_TABLE_LENGTH]; // ISRs written in assembly
+interrupt_handler *interrupt_handlers[INTERRUPT_TABLE_LENGTH]; // handlers written in C
 
 static void load_interrupt_table( interrupt_table_descriptor_t *descriptor ) {
     asm( "lidt %[descriptor]" :: [descriptor] "m" (*descriptor) );
@@ -50,9 +49,9 @@ static void disable_interrupts() {
     asm( "cli\n" );
 }
 
-void interrupt_table_set_callback( size_t i, void(*callback)() ) {
-    if( i > NUM_INTERRUPT_TABLE_ENTRIES ) panic( "interrupt_table_set_callback: invalid interrupt index\n" );
-    interrupt_callbacks[i] = callback;
+void interrupt_table_set_handler( size_t i, interrupt_handler *handler ) {
+    if( i >= INTERRUPT_TABLE_LENGTH ) panic( "interrupt_table_set_handler: invalid interrupt index\n" );
+    interrupt_handlers[i] = handler;
 }
 
 static void interrupt_table_set_routine( size_t i, void *interrupt_routine ) {
@@ -77,25 +76,16 @@ static void interrupt_table_set_routine( size_t i, void *interrupt_routine ) {
 }
 
 // TODO: add a stack frame argument
-void interrupt_table_handler( uint64_t interrupt ) {
+void interrupt_table_default_handler( uint64_t interrupt ) {
     // print interrupt number
     #ifdef TRACE_INTERRUPTS
     vga_text_print( "interrupt ", 0x17 );
     vga_text_print( string_from_int64( (int64_t)interrupt ), 0x17 );
     vga_text_print( "\n", 0x17 );
     #endif
-    
-    // execute callback function
-    void (*callback)() = interrupt_callbacks[interrupt];
-    if( callback ) {
-        callback();
-    }
-
-    // probably not all interrupts require this, but it doesn't hurt
-    io_acknowledge_irq();
 }
 
-static void divide_by_zero_callback() {
+static void divide_by_zero_handler( uint64_t interrupt ) {
     panic( "divided by zero\n" );
 }
 
@@ -107,7 +97,7 @@ static void cause_divide_by_zero() {
     ");
 }
 
-static void invalid_opcode_callback() {
+static void invalid_opcode_handler( uint64_t interrupt ) {
     panic( "invalid opcode\n" );
 }
 
@@ -117,11 +107,11 @@ static void cause_invalid_opcode() {
 
 static volatile bool breakpoint_hit;
 
-static void breakpoint_callback_test() {
+static void breakpoint_handler_test( uint64_t interrupt ) {
     breakpoint_hit = true;
 }
 
-static void breakpoint_callback() {
+static void breakpoint_handler( uint64_t interrupt ) {
     panic( "breakpoint\n" );
 }
 
@@ -138,18 +128,17 @@ void interrupt_table_init() {
     interrupt_table_descriptor.interrupt_table_size_minus_1 = sizeof( interrupt_table ) - 1;
     interrupt_table_descriptor.interrupt_table_location = (uint64_t)&interrupt_table;
 
-    // clear all of the interrupt callbacks (they're each a qword, so this should work)
-    buffer_clear_qwords( (uint64_t*)interrupt_callbacks, NUM_INTERRUPT_TABLE_ENTRIES );
-
     // set all of the interrupts to the routines we wrote in interrupt_routines.asm
-    for( int i = 0; i < NUM_INTERRUPT_TABLE_ENTRIES; i++ ) {
+    // also, set all of the handlers to the default handler
+    for( int i = 0; i < INTERRUPT_TABLE_LENGTH; i++ ) {
         interrupt_table_set_routine( i, interrupt_service_routine_pointer_table[i] );
+        interrupt_table_set_handler( i, (interrupt_handler*)interrupt_table_default_handler );
     }
 
-    // set a few default callbacks to system panic
-    interrupt_table_set_callback( 0, divide_by_zero_callback );
-    interrupt_table_set_callback( 3, breakpoint_callback_test );
-    interrupt_table_set_callback( 6, invalid_opcode_callback );
+    // ok, now set some specific handlers
+    interrupt_table_set_handler( 0, (interrupt_handler*)divide_by_zero_handler );
+    interrupt_table_set_handler( 3, (interrupt_handler*)breakpoint_handler_test );
+    interrupt_table_set_handler( 6, (interrupt_handler*)invalid_opcode_handler);
 
     // load the interrupt table
     load_interrupt_table( &interrupt_table_descriptor );
@@ -164,6 +153,6 @@ void interrupt_table_init() {
     cause_breakpoint();
     if( !breakpoint_hit ) panic( "interrupt_table_init: test failed for breakpoint interrupt" );
 
-    // replace the test breakpoint callback w/ the real callback (the real one just panics)
-    interrupt_table_set_callback( 3, breakpoint_callback );
+    // replace the test breakpoint handler w/ the real handler (the real one just panics)
+    interrupt_table_set_handler( 3, (interrupt_handler*)breakpoint_handler );
 }

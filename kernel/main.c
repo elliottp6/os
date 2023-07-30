@@ -40,9 +40,8 @@ void main() {
     // initialize the interrupt table
     interrupt_table_init();
 
-    // now that we have interrupts, we can enable the keyboard (which will register interrupts)
-    // TODO: we probably have to re-enable IRQs for this to work???
-    //ps2_keyboard_init();
+    // now that we have interrupts & IRQs working, we can enable the keyboard driver
+    ps2_keyboard_init();
 
     // do a busy wait
     // TODO: go into some kind of sleeping-wait state

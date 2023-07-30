@@ -5,13 +5,14 @@ section .asm
 [BITS 64]
 
 ; imports
-extern interrupt_table_handler
+extern interrupt_handlers
 
 ; exports
 global interrupt_service_routine_pointer_table
 
 ; number of total interrupts in x86_64
 %define NUM_INTERRUPT_TABLE_ENTRIES 256
+%define IRQ_0_7_COMMAND_PORT 0x20
 
 ; macro which builds an interrupt service routine
 ; TODO: note that we are NOT yet saving the SIMD registers, which could be clobbered by the interrupt handler
@@ -28,8 +29,10 @@ global interrupt_service_routine_pointer_table
         push r9
         push r10
         push r11
-        mov rdi, %1 ; integer argument for 'interrupt_handler'
-        call interrupt_table_handler
+        mov rdi, %1 ; interrupt # as 1st arg for interrupt handler
+        call qword [interrupt_handlers + %1 * 8]
+        mov al, 0x20
+        out IRQ_0_7_COMMAND_PORT, al ; acknowledge the IRQ
         pop r11
         pop r10
         pop r9

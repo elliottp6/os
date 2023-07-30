@@ -40,16 +40,14 @@ static uint8_t scancode_to_char( uint8_t scancode, uint8_t *table, uint8_t table
     return c + 32 * (!capslock & (c >= 'A') & (c <= 'Z'));
 }
 
-void key_state_handler() {
-    // TODO: we must acknolwedge receipt of this to the PIC
+static void key_state_handler( uint64_t interrupt ) {
     panic( "keypress\n" );
 }
 
-// TODO
 void ps2_keyboard_init() {
     // set interrupt to handle keypress
-    //interrupt_table_set( KEY_STATE_INTERRUPT, key_state_handler_wrapper );
+    interrupt_table_set_handler( KEY_STATE_INTERRUPT, (interrupt_handler*)key_state_handler );
 
     // enable the 1st PS/2 port
-    //io_write_byte( PS2_PORT, PS2_COMMAND_ENABLE_FIRST_PORT );
+    io_write_byte( PS2_PORT, PS2_COMMAND_ENABLE_FIRST_PORT );
 }
