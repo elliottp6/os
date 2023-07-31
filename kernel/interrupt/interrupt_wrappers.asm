@@ -15,7 +15,9 @@ global interrupt_wrappers
 
 ; we need to send a signal to this port to tell the PIC that we've processed the IRQ
 ; note: IRQ8_15 is daisy chained so doesn't need a separate acknowledgement
-%define IRQ_0_7_COMMAND_PORT 0x20
+%define PIC1_COMMAND_PORT 0x20
+%define PIC2_COMMAND_PORT 0xA0
+%define PIC_COMMAND_END_OF_INTERRUPT 0x20
 
 ; macro which builds an interrupt service routine
 ; TODO: note that we are NOT yet saving the SIMD registers, which could be clobbered by the interrupt handler
@@ -34,8 +36,10 @@ global interrupt_wrappers
         push r11
         mov rdi, %1 ; interrupt # as 1st arg for interrupt handler
         call qword [interrupt_handlers + %1 * 8]
-        mov al, 0x20
-        out IRQ_0_7_COMMAND_PORT, al ; acknowledge the IRQ
+        mov al, PIC_COMMAND_END_OF_INTERRUPT
+        out PIC1_COMMAND_PORT, al ; send EOI (end of interrupt) signal
+        mov al, PIC_COMMAND_END_OF_INTERRUPT
+        out PIC2_COMMAND_PORT, al ; send EOI (end of interrupt) signal
         pop r11
         pop r10
         pop r9
