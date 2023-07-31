@@ -41,11 +41,12 @@ void main() {
     interrupt_table_init();
 
     // now that we have interrupts & IRQs working, we can enable the keyboard driver
-    ps2_keyboard_init();
+    //ps2_keyboard_init();
 
-    // do a busy wait
-    // TODO: go into some kind of sleeping-wait state
-    //while( true );
+    // main loop
+    while( true ) {
+        interrupt_table_wait_for_interrupt();
+    }
 
     // machine is now ready for power off
     vga_text_print( "Exiting kernel & suspending CPU. Machine is now ready to be powered off.\n", 0x06 );

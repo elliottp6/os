@@ -8,7 +8,7 @@
 #include "../main.h" // for panic
 
 #define KERNEL_CODE_SELECTOR 0x08 // defined in boot.asm
-#define TRACE_INTERRUPTS
+#define TRACE_UNHANDLED_INTERRUPTS
 
 typedef struct interrupt_table_descriptor {
     uint16_t interrupt_table_size_minus_1;
@@ -76,14 +76,16 @@ void interrupt_table_set_handler( size_t i, interrupt_handler *handler ) {
 }
 
 // TODO: add a stack frame argument
-void interrupt_table_default_handler( uint64_t interrupt ) {
+static void trace_interrupt_handler( uint64_t interrupt ) {
     // print interrupt number
-    #ifdef TRACE_INTERRUPTS
+    #ifdef TRACE_UNHANDLED_INTERRUPTS
     vga_text_print( "interrupt ", 0x17 );
     vga_text_print( string_from_int64( (int64_t)interrupt ), 0x17 );
     vga_text_print( "\n", 0x17 );
     #endif
 }
+
+static void empty_interrupt_handler( uint64_t interrupt ) {}
 
 static void divide_by_zero_handler( uint64_t interrupt ) {
     panic( "divided by zero\n" );
@@ -132,13 +134,14 @@ void interrupt_table_init() {
     // also, set all of the handlers to the default handler
     for( int i = 0; i < INTERRUPT_TABLE_LENGTH; i++ ) {
         interrupt_table_set_wrapper( i, interrupt_wrappers[i] );
-        interrupt_table_set_handler( i, (interrupt_handler*)interrupt_table_default_handler );
+        interrupt_table_set_handler( i, (interrupt_handler*)trace_interrupt_handler );
     }
 
     // ok, now set some specific handlers
-    interrupt_table_set_handler( 0, (interrupt_handler*)divide_by_zero_handler );
-    interrupt_table_set_handler( 3, (interrupt_handler*)breakpoint_handler_test );
-    interrupt_table_set_handler( 6, (interrupt_handler*)invalid_opcode_handler);
+    interrupt_table_set_handler( INTERRUPT_INDEX_DIVIDE_BY_ZERO, (interrupt_handler*)divide_by_zero_handler );
+    interrupt_table_set_handler( INTERRUPT_INDEX_BREAKPOINT, (interrupt_handler*)breakpoint_handler_test );
+    interrupt_table_set_handler( INTERRUPT_INDEX_INVALID_OPCODE, (interrupt_handler*)invalid_opcode_handler );
+    interrupt_table_set_handler( INTERRUPT_INDEX_CLOCK, (interrupt_handler*)empty_interrupt_handler );
 
     // load the interrupt table
     load_interrupt_table( &interrupt_table_descriptor );
@@ -154,5 +157,9 @@ void interrupt_table_init() {
     if( !breakpoint_hit ) panic( "interrupt_table_init: test failed for breakpoint interrupt" );
 
     // replace the test breakpoint handler w/ the real handler (the real one just panics)
-    interrupt_table_set_handler( 3, (interrupt_handler*)breakpoint_handler );
+    interrupt_table_set_handler( INTERRUPT_INDEX_BREAKPOINT, (interrupt_handler*)breakpoint_handler );
+}
+
+void interrupt_table_wait_for_interrupt() {
+    asm( "hlt" );
 }
