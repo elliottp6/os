@@ -56,9 +56,13 @@ static void write_cell( vga_text_cell cell ) {
     if( terminal_x >= VGA_WIDTH ) { terminal_x = 0; terminal_y++; }
 }
 
+void vga_char_print( char c, char color ) {
+    write_cell( make_cell( c, color ) );
+}
+
 void vga_text_print( const char* str, char color ) {
     size_t len = string_length( str );
-    for( int i = 0; i < len; i++ ) write_cell( make_cell( str[i], color ) );
+    for( int i = 0; i < len; i++ ) vga_char_print( str[i], color );
 }
 
 void vga_text_clear( char color ) {
