@@ -1,6 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
-#include "io.h"
+#include "pic.h"
 #include "interrupt_table.h"
 #include "../memory/buffer.h"
 #include "../text/string.h" // for printing integers
@@ -148,7 +148,7 @@ void interrupt_table_init() {
 
     // enable interrupts & IRQs
     enable_interrupts();
-    io_enable_irqs();
+    pic_remap_and_enable_irqs();
     if( !are_interrupts_enabled() ) panic( "interrupt_table_init: failed to enable interrupts\n" );
 
     // test breakpoint interrupt

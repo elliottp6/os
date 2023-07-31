@@ -36,7 +36,7 @@ start32:
 
 ; es:edi must point to the pagemap
 enter_long_mode:
-    ; disable IRQs (interrupt requests)
+    ; disable IRQs (interrupt requests) on PIC1 & PIC2 (which are used to enabled/disable interruts in 32-bit protected mode)
     mov al, 0xFF
     out 0xA1, al
     out 0x21, al

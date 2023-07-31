@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include "../interrupt/io.h"
 #include "../interrupt/interrupt_table.h"
+#include "../text/vga_text.h" // for debug output
 #include "../main.h" // for panic
 #include "ps2_keyboard.h"
 
@@ -41,7 +42,10 @@ static uint8_t scancode_to_char( uint8_t scancode, uint8_t *table, uint8_t table
 }
 
 static void key_state_handler( uint64_t interrupt ) {
-    panic( "keypress\n" );
+    //panic( "keypress\n" );
+    vga_text_print( "k", 0x17 );
+
+    // TODO: we don't get any more keypress/release interrupts... but that's probably b/c we have to do something else here!
 }
 
 void ps2_keyboard_init() {

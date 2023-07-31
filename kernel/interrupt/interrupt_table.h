@@ -7,8 +7,7 @@
 #define INTERRUPT_INDEX_DIVIDE_BY_ZERO 0
 #define INTERRUPT_INDEX_BREAKPOINT 3
 #define INTERRUPT_INDEX_INVALID_OPCODE 6
-#define INTERRUPT_INDEX_CLOCK 8
-#define INTERRUPT_INDEX_KEYBOARD 9
+#define INTERRUPT_INDEX_CLOCK 32
 
 // C interrupt handlers must be declared here, so our assembly code handlers can invoke them
 #define INTERRUPT_TABLE_LENGTH 256

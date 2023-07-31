@@ -41,7 +41,7 @@ void main() {
     interrupt_table_init();
 
     // now that we have interrupts & IRQs working, we can enable the keyboard driver
-    //ps2_keyboard_init();
+    ps2_keyboard_init();
 
     // main loop
     while( true ) {
