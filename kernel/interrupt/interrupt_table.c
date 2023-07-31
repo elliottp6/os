@@ -2,9 +2,9 @@
 #include <stdint.h>
 #include "pic.h"
 #include "interrupt_table.h"
-#include "../memory/buffer.h"
-#include "../text/string.h" // for printing integers
-#include "../text/vga_text.h" // for printing
+#include "../buffer/buffer.h"
+#include "../buffer/string.h" // for printing integers
+#include "../drivers/vga_text.h" // for printing
 #include "../main.h" // for panic
 
 #define KERNEL_CODE_SELECTOR 0x08 // defined in boot.asm

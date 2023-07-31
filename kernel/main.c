@@ -2,8 +2,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "main.h"
-#include "text/string.h"
-#include "text/vga_text.h"
+#include "buffer/string.h"
+#include "drivers/vga_text.h"
 #include "memory/paging.h"
 #include "memory/kernel_heap.h"
 #include "interrupt/interrupt_table.h"

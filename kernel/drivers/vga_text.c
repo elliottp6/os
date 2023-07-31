@@ -1,7 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "string.h"
+#include "../buffer/string.h"
 
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25

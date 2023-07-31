@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include "paging.h"
-#include "../text/string.h"
-#include "../text/vga_text.h"
+#include "../buffer/string.h"
+#include "../drivers/vga_text.h"
 
 #define PAGE_FLAG_PRESENT (1 << 0)
 #define PAGE_FLAG_WRITE (1 << 1)

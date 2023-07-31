@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include "../interrupt/io.h"
 #include "../interrupt/interrupt_table.h"
-#include "../text/vga_text.h" // for debug output
+#include "vga_text.h" // for debug output
 #include "../main.h" // for panic
 #include "ps2_keyboard.h"
 

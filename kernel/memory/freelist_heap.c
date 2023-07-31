@@ -2,8 +2,8 @@
 #include <stdint.h>
 #include "circular_list.h"
 #include "freelist_heap.h"
-#include "../text/string.h" // print freelist_heap_print
-#include "../text/vga_text.h" // "
+#include "../buffer/string.h" // print freelist_heap_print
+#include "../drivers/vga_text.h" // "
 #include "../main.h" // for panic
 
 //#define TRACE

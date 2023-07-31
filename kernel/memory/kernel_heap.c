@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include "kernel_heap.h"
 #include "freelist_heap.h"
-#include "../text/string.h" // for error messages
-#include "../text/vga_text.h" // for error messages
+#include "../buffer/string.h" // for error messages
+#include "../drivers/vga_text.h" // for error messages
 #include "../main.h" // for panic
 
 static void print_heap() {
